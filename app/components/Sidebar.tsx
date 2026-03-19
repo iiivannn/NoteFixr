@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotes } from "../lib/notes-context";
-import { Trash2 } from "lucide-react";
+import { Trash2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 interface Note {
   id: string;
@@ -15,6 +15,7 @@ export default function Sidebar() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [search, setSearch] = useState("");
   const { refreshKey, refresh } = useNotes();
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     fetch("/api/notes")
@@ -63,44 +64,70 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
       <div className="sidebar-header">
-        <span>NoteFixr</span>
-        <button onClick={() => router.push("/notes/new")}>+ New</button>
+        {!collapsed && <span>NOTEFIXR</span>}
+        <button
+          className="sidebar-toggle"
+          onClick={() => setCollapsed((c) => !c)}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <PanelLeftOpen size={15} />
+          ) : (
+            <PanelLeftClose size={15} />
+          )}
+        </button>
       </div>
 
-      <input
-        className="sidebar-search"
-        type="text"
-        placeholder="Search notes..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {filtered.map((note) => (
-        <div
-          key={note.id}
-          className="sidebar-note-item"
-          onClick={() => openNote(note.id)}
-        >
-          <span className="note-title">{note.title ?? "Untitled"}</span>
-          <div className="note-item-footer">
-            <span className="note-date">
-              {new Date(note.updatedAt).toLocaleDateString()}
-            </span>
+      {!collapsed && (
+        <>
+          <input
+            className="sidebar-search"
+            type="text"
+            placeholder="Search notes..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="sidebar-notes">
+            {filtered.length === 0 && (
+              <p className="sidebar-empty">No notes yet</p>
+            )}
+            {filtered.map((note) => (
+              <div
+                key={note.id}
+                className="sidebar-note-item"
+                onClick={() => openNote(note.id)}
+              >
+                <span className="note-title">{note.title ?? "Untitled"}</span>
+                <div className="note-item-footer">
+                  <span className="note-date">
+                    {new Date(note.updatedAt).toLocaleDateString()}
+                  </span>
+                  <button
+                    className="note-delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(note.id);
+                    }}
+                    title="Delete note"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="sidebar-footer">
             <button
-              className="note-delete-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(note.id);
-              }}
-              title="Delete note"
+              onClick={() => router.push("/notes/new")}
+              className="sidebar-new-btn"
             >
-              <Trash2 size={16} />
+              + New note
             </button>
           </div>
-        </div>
-      ))}
+        </>
+      )}
     </aside>
   );
 }
