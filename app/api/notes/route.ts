@@ -61,3 +61,16 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json(note);
 }
+
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await req.json();
+
+  await prisma.note.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
+}
