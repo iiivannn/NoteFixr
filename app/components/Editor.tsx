@@ -9,6 +9,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import TextAlign from "@tiptap/extension-text-align";
 import { useNotes } from "../lib/notes-context";
 import SettingsMenu from "./SettingsMenu";
+
 import {
   Bold,
   Italic,
@@ -23,6 +24,7 @@ import {
   AlignRight,
   Undo,
   Redo,
+  Pencil,
 } from "lucide-react";
 
 interface EditorProps {
@@ -42,6 +44,7 @@ export default function Editor({
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const { refresh } = useNotes();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  const [editingTitle, setEditingTitle] = useState(false);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -107,10 +110,43 @@ export default function Editor({
   const chars = editor.getText().length;
   const words = editor.getText().split(/\s+/).filter(Boolean).length;
 
+  async function handleTitleSave() {
+    setEditingTitle(false);
+    if (!noteId || !title) return;
+    await fetch("/api/notes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: noteId, title }),
+    });
+    refresh();
+  }
+
   return (
     <div className="editor-wrapper">
       <div className="editor-menubar">
-        <span className="editor-note-title">{title || "Untitled"}</span>
+        <div className="editor-note-title-wrapper">
+          {editingTitle ? (
+            <input
+              className="editor-title-input"
+              value={title}
+              autoFocus
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleTitleSave();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+            />
+          ) : (
+            <div
+              className="editor-note-title"
+              onClick={() => noteId && setEditingTitle(true)}
+            >
+              <span>{title || "Untitled"}</span>
+              {noteId && <Pencil size={12} />}
+            </div>
+          )}
+        </div>
         <div className="menubar-actions">
           <button
             className={saved ? "btn-saved" : "btn-save"}
