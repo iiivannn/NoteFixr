@@ -15,5 +15,11 @@ export default async function NoteIdPage({ params }: Props) {
     notFound();
   }
 
-  return <Editor noteId={note.id} initialContent={note.rawContent} />;
+  return (
+    <Editor
+      noteId={note.id}
+      initialContent={note.rawContent}
+      initialTitle={note.title ?? ""}
+    />
+  );
 }
