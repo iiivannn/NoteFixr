@@ -1,3 +1,5 @@
+import Editor from "../../../components/Editor";
+
 export default function NewNotePage() {
-  return <div>Editor goes here</div>;
+  return <Editor />;
 }
