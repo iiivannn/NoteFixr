@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useReducer } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -9,6 +9,21 @@ import TaskItem from "@tiptap/extension-task-item";
 import TextAlign from "@tiptap/extension-text-align";
 import { useNotes } from "../lib/notes-context";
 import SettingsMenu from "./SettingsMenu";
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Highlighter,
+  Strikethrough,
+  List,
+  ListOrdered,
+  ListChecks,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Undo,
+  Redo,
+} from "lucide-react";
 
 interface EditorProps {
   noteId?: string;
@@ -26,11 +41,16 @@ export default function Editor({
   const [title, setTitle] = useState(initialTitle);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const { refresh } = useNotes();
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3, 4, 6],
+        },
+      }),
       Underline,
       Highlight,
       TaskList,
@@ -44,6 +64,9 @@ export default function Editor({
         spellcheck: "false",
       },
     },
+    onUpdate: () => forceUpdate(),
+    onSelectionUpdate: () => forceUpdate(),
+    onTransaction: () => forceUpdate(),
   });
 
   const saveNote = useCallback(async () => {
@@ -105,28 +128,47 @@ export default function Editor({
           className="toolbar-select"
           onChange={(e) => {
             const val = e.target.value;
-            if (val === "p") editor.chain().focus().setParagraph().run();
-            else
-              editor
-                .chain()
-                .focus()
-                .toggleHeading({ level: parseInt(val) as 1 | 2 | 3 })
-                .run();
+            switch (val) {
+              case "heading":
+                editor.chain().focus().setHeading({ level: 1 }).run();
+                break;
+              case "subheading":
+                editor.chain().focus().setHeading({ level: 2 }).run();
+                break;
+              case "title":
+                editor.chain().focus().setHeading({ level: 3 }).run();
+                break;
+              case "subtitle":
+                editor.chain().focus().setHeading({ level: 4 }).run();
+                break;
+              case "caption":
+                editor.chain().focus().setHeading({ level: 6 }).run();
+                break;
+              default:
+                editor.chain().focus().setParagraph().run();
+                break;
+            }
           }}
           value={
             editor.isActive("heading", { level: 1 })
-              ? "1"
+              ? "heading"
               : editor.isActive("heading", { level: 2 })
-                ? "2"
+                ? "subheading"
                 : editor.isActive("heading", { level: 3 })
-                  ? "3"
-                  : "p"
+                  ? "title"
+                  : editor.isActive("heading", { level: 4 })
+                    ? "subtitle"
+                    : editor.isActive("heading", { level: 6 })
+                      ? "caption"
+                      : "body"
           }
         >
-          <option value="p">Paragraph</option>
-          <option value="1">Heading 1</option>
-          <option value="2">Heading 2</option>
-          <option value="3">Heading 3</option>
+          <option value="heading">Heading</option>
+          <option value="subheading">Subheading</option>
+          <option value="title">Title</option>
+          <option value="subtitle">Subtitle</option>
+          <option value="body">Body</option>
+          <option value="caption">Caption</option>
         </select>
 
         <div className="toolbar-divider" />
@@ -136,35 +178,39 @@ export default function Editor({
           onClick={() => editor.chain().focus().toggleBold().run()}
           title="Bold"
         >
-          <strong>B</strong>
+          <Bold size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive("italic") ? "active" : ""}`}
           onClick={() => editor.chain().focus().toggleItalic().run()}
           title="Italic"
         >
-          <em>I</em>
+          <Italic size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive("underline") ? "active" : ""}`}
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           title="Underline"
         >
-          <u>U</u>
+          <UnderlineIcon size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive("highlight") ? "active" : ""}`}
           onClick={() => editor.chain().focus().toggleHighlight().run()}
           title="Highlight"
         >
-          H
+          <Highlighter size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive("strike") ? "active" : ""}`}
           onClick={() => editor.chain().focus().toggleStrike().run()}
           title="Strikethrough"
         >
-          <s>S</s>
+          <Strikethrough size={14} />
         </button>
 
         <div className="toolbar-divider" />
@@ -174,21 +220,23 @@ export default function Editor({
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           title="Bullet list"
         >
-          ☰
+          <List size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive("orderedList") ? "active" : ""}`}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           title="Numbered list"
         >
-          ≡
+          <ListOrdered size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive("taskList") ? "active" : ""}`}
           onClick={() => editor.chain().focus().toggleTaskList().run()}
           title="Task list"
         >
-          ☑
+          <ListChecks size={14} />
         </button>
 
         <div className="toolbar-divider" />
@@ -198,21 +246,23 @@ export default function Editor({
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
           title="Align left"
         >
-          ←
+          <AlignLeft size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive({ textAlign: "center" }) ? "active" : ""}`}
           onClick={() => editor.chain().focus().setTextAlign("center").run()}
           title="Align center"
         >
-          ↔
+          <AlignCenter size={14} />
         </button>
+
         <button
           className={`toolbar-btn ${editor.isActive({ textAlign: "right" }) ? "active" : ""}`}
           onClick={() => editor.chain().focus().setTextAlign("right").run()}
           title="Align right"
         >
-          →
+          <AlignRight size={14} />
         </button>
 
         <div className="toolbar-divider" />
@@ -222,14 +272,15 @@ export default function Editor({
           onClick={() => editor.chain().focus().undo().run()}
           title="Undo"
         >
-          ↩
+          <Undo size={14} />
         </button>
+
         <button
           className="toolbar-btn"
           onClick={() => editor.chain().focus().redo().run()}
           title="Redo"
         >
-          ↪
+          <Redo size={14} />
         </button>
       </div>
 
