@@ -1,0 +1,70 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useNotes } from "../lib/notes-context";
+
+interface Note {
+  id: string;
+  title: string | null;
+  updatedAt: string;
+}
+
+export default function Sidebar() {
+  const router = useRouter();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [search, setSearch] = useState("");
+  const { refreshKey } = useNotes();
+
+  useEffect(() => {
+    fetch("/api/notes")
+      .then((res) => res.json())
+      .then((data) => setNotes(data.notes ?? []));
+  }, [refreshKey]);
+
+  useEffect(() => {
+    fetch("/api/notes")
+      .then((res) => res.json())
+      .then((data) => setNotes(data.notes ?? []));
+  }, []);
+
+  const filtered = notes.filter((n) =>
+    (n.title ?? "Untitled").toLowerCase().includes(search.toLowerCase()),
+  );
+
+  function openNote(id: string) {
+    router.push(`/notes/${id}`);
+  }
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-header">
+        <span>NoteFixr</span>
+        <button onClick={() => router.push("/notes/new")}>+ New</button>
+      </div>
+
+      <input
+        className="sidebar-search"
+        type="text"
+        placeholder="Search notes..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      <div className="sidebar-notes">
+        {filtered.length === 0 && <p className="sidebar-empty">No notes yet</p>}
+        {filtered.map((note) => (
+          <div
+            key={note.id}
+            className="sidebar-note-item"
+            onClick={() => openNote(note.id)}
+          >
+            <span className="note-title">{note.title ?? "Untitled"}</span>
+            <span className="note-date">
+              {new Date(note.updatedAt).toLocaleDateString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
