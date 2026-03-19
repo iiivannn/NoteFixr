@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import "../../styles/auth.scss";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -34,8 +35,8 @@ export default function RegisterPage() {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h1>NoteFixr</h1>
-        <p>Create your account</p>
+        <p className="auth-logo">NoteFixr</p>
+        <p className="auth-subtitle">Create your account</p>
 
         <form onSubmit={handleSubmit}>
           <input
@@ -60,7 +61,7 @@ export default function RegisterPage() {
             required
           />
           {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={loading}>
+          <button className="btn-primary" type="submit" disabled={loading}>
             {loading ? "Creating account..." : "Register"}
           </button>
         </form>

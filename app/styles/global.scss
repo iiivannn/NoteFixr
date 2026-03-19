@@ -1,0 +1,79 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500&display=swap");
+
+:root {
+  --bg: #f3f3f3;
+  --bg-secondary: #ebebeb;
+  --surface: #ffffff;
+  --surface-hover: #e5e5e5;
+  --border: #e0e0e0;
+  --border-strong: #c8c8c8;
+  --text: #1a1a1a;
+  --text-muted: #888888;
+  --text-subtle: #b0b0b0;
+  --accent: #0067c0;
+  --accent-hover: #0053a0;
+  --accent-light: #e8f1fb;
+  --sidebar-width: 240px;
+  --topbar-height: 40px;
+  --toolbar-height: 40px;
+  --statusbar-height: 24px;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --font-mono: "Geist Mono", "Consolas", monospace;
+  --font-ui: "Geist", "Segoe UI", sans-serif;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --bg-secondary: #252525;
+    --surface: #2d2d2d;
+    --surface-hover: #3a3a3a;
+    --border: #3a3a3a;
+    --border-strong: #4a4a4a;
+    --text: #e8e8e8;
+    --text-muted: #888888;
+    --text-subtle: #555555;
+    --accent: #4db8ff;
+    --accent-hover: #6fc8ff;
+    --accent-light: #1a3a5c;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+button {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  border: none;
+  outline: none;
+  background: none;
+}
+input {
+  font-family: var(--font-ui);
+}
+main {
+  width: 100%;
+}

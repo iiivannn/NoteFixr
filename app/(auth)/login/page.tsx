@@ -2,6 +2,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import "../../styles/auth.scss";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,8 +33,8 @@ export default function LoginPage() {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h1>NoteFixr</h1>
-        <p>Sign in to your account</p>
+        <p className="auth-logo">NoteFixr</p>
+        <p className="auth-subtitle">Sign in to your account</p>
 
         <button
           onClick={() => signIn("google", { callbackUrl: "/notes/new" })}
@@ -60,7 +61,7 @@ export default function LoginPage() {
             required
           />
           {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={loading}>
+          <button className="btn-primary" type="submit" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
