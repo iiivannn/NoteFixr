@@ -9,6 +9,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import TextAlign from "@tiptap/extension-text-align";
 import { useNotes } from "../lib/notes-context";
 import SettingsMenu from "./SettingsMenu";
+import AiToolbar from "./AiToolbar";
 
 import {
   Bold,
@@ -85,16 +86,15 @@ export default function Editor({
       body: JSON.stringify({ id: noteId, title, content }),
     });
 
-    const data = await res.json();
+    const data = res.ok ? await res.json() : null;
 
-    if (res.ok) {
+    if (res.ok && data) {
       localStorage.removeItem("draft");
       document.cookie = `lastNoteId=${data.id}; path=/; max-age=31536000`;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       refresh();
     }
-
     setSaving(false);
   }, [editor, noteId, title, refresh]);
 
@@ -329,6 +329,7 @@ export default function Editor({
         </button>
       </div>
 
+      <AiToolbar editor={editor} onTitleChange={(t) => setTitle(t)} />
       <EditorContent editor={editor} />
 
       <div className="editor-statusbar">

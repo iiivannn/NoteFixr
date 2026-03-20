@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 12px;
   height: var(--topbar-height);
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
@@ -102,7 +102,7 @@
 .editor-toolbar {
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 8px;
   height: var(--toolbar-height);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -182,5 +182,67 @@
     font-size: 11px;
     color: var(--text-subtle);
     font-family: var(--font-mono);
+  }
+}
+
+.ai-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  height: 36px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.ai-toolbar-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-right: 4px;
+  font-family: var(--font-mono);
+}
+
+.ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  background: transparent;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  &--loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
