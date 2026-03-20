@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useReducer } from "react";
 import { useRouter } from "next/navigation";
 import { useNotes } from "../lib/notes-context";
 import { Trash2, PanelLeftClose, PanelLeftOpen, X, Plus } from "lucide-react";
@@ -14,8 +14,22 @@ export default function Sidebar() {
   const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [search, setSearch] = useState("");
-  const { refreshKey, refresh, sidebarOpen, setSidebarOpen } = useNotes();
+  const { refreshKey, refresh, sidebarOpen, setSidebarOpen, draftKey } =
+    useNotes();
   const [collapsed, setCollapsed] = useState(false);
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+
+  useEffect(() => {
+    forceUpdate();
+  }, [draftKey]);
+
+  useEffect(() => {
+    function handleStorage() {
+      forceUpdate();
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   useEffect(() => {
     fetch("/api/notes")
@@ -57,6 +71,11 @@ export default function Sidebar() {
     router.push("/notes/new");
   }
 
+  function hasDraft(id: string) {
+    if (typeof window === "undefined") return false;
+    return !!localStorage.getItem(`draft_${id}`);
+  }
+
   return (
     <>
       <div
@@ -68,26 +87,36 @@ export default function Sidebar() {
         className={`sidebar ${collapsed ? "sidebar--collapsed" : ""} ${sidebarOpen ? "sidebar--open" : ""}`}
       >
         <div className="sidebar-header">
-          {!collapsed && <span>NOTEFIXR</span>}
-          <button
-            className="sidebar-toggle"
-            onClick={() => setCollapsed((c) => !c)}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={15} />
-            ) : (
-              <PanelLeftClose size={15} />
+          {(!collapsed || sidebarOpen) && <span>NOTEFIXR</span>}
+          <div className="sidebar-header-actions">
+            {(!collapsed || sidebarOpen) && (
+              <button
+                className="sidebar-icon-btn"
+                onClick={() => router.push("/notes/new")}
+                title="New note"
+              >
+                <Plus size={15} />
+              </button>
             )}
-          </button>
-
-          <button
-            className="sidebar-close-mobile"
-            onClick={() => setSidebarOpen(false)}
-            title="Close sidebar"
-          >
-            <X size={15} />
-          </button>
+            <button
+              className="sidebar-toggle"
+              onClick={() => setCollapsed((c) => !c)}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
+                <PanelLeftOpen size={15} />
+              ) : (
+                <PanelLeftClose size={15} />
+              )}
+            </button>
+            <button
+              className="sidebar-close-mobile"
+              onClick={() => setSidebarOpen(false)}
+              title="Close sidebar"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
         {(!collapsed || sidebarOpen) && (
@@ -109,7 +138,12 @@ export default function Sidebar() {
                   className="sidebar-note-item"
                   onClick={() => openNote(note.id)}
                 >
-                  <span className="note-title">{note.title ?? "Untitled"}</span>
+                  <span className="note-title">
+                    {note.title ?? "Untitled"}
+                    {hasDraft(note.id) && (
+                      <span className="unsaved-dot" title="Unsaved changes" />
+                    )}
+                  </span>
                   <div className="note-item-footer">
                     <span className="note-date">
                       {new Date(note.updatedAt).toLocaleDateString()}
@@ -127,15 +161,6 @@ export default function Sidebar() {
                   </div>
                 </div>
               ))}
-            </div>
-            <div className="sidebar-footer">
-              <button
-                onClick={() => router.push("/notes/new")}
-                className="sidebar-new-btn"
-              >
-                New note
-                <Plus size={16} />
-              </button>
             </div>
           </>
         )}

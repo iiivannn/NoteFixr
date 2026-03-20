@@ -1,5 +1,26 @@
+.editor-content-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  > div {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.tiptap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .ProseMirror {
   flex: 1;
+  min-height: 100%;
   padding: 24px 32px;
   background: var(--bg);
   color: var(--text);
@@ -7,11 +28,7 @@
   font-size: 14px;
   line-height: 1.75;
   outline: none;
-  min-height: calc(
-    100vh - var(--topbar-height) - var(--toolbar-height) - var(
-        --statusbar-height
-      )
-  );
+  cursor: text;
 
   h1 {
     font-size: 32px;
@@ -87,5 +104,13 @@
     pointer-events: none;
     float: left;
     height: 0;
+  }
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 3px;
   }
 }

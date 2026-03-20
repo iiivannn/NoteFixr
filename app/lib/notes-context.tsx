@@ -6,6 +6,8 @@ interface NotesContextType {
   refresh: () => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  draftKey: number;
+  notifyDraftChange: () => void;
 }
 
 const NotesContext = createContext<NotesContextType>({
@@ -13,11 +15,18 @@ const NotesContext = createContext<NotesContextType>({
   refresh: () => {},
   sidebarOpen: false,
   setSidebarOpen: () => {},
+  draftKey: 0,
+  notifyDraftChange: () => {},
 });
 
 export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [draftKey, setDraftKey] = useState(0);
+  const notifyDraftChange = useCallback(() => {
+    setDraftKey((k) => k + 1);
+  }, []);
 
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -25,7 +34,14 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <NotesContext.Provider
-      value={{ refreshKey, refresh, sidebarOpen, setSidebarOpen }}
+      value={{
+        refreshKey,
+        refresh,
+        sidebarOpen,
+        setSidebarOpen,
+        draftKey,
+        notifyDraftChange,
+      }}
     >
       {children}
     </NotesContext.Provider>

@@ -10,6 +10,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { useNotes } from "../lib/notes-context";
 import SettingsMenu from "./SettingsMenu";
 import AiToolbar from "./AiToolbar";
+import { useRouter } from "next/navigation";
 
 import {
   Bold,
@@ -44,10 +45,13 @@ export default function Editor({
   const [saved, setSaved] = useState(false);
   const [title, setTitle] = useState(initialTitle);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
-  const { refresh, setSidebarOpen, sidebarOpen } = useNotes();
+  const { refresh, setSidebarOpen, sidebarOpen, notifyDraftChange } =
+    useNotes();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   const [editingTitle, setEditingTitle] = useState(false);
   const [smartSaving, setSmartSaving] = useState(false);
+  const router = useRouter();
+  const [promptTitle, setPromptTitle] = useState("");
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -63,49 +67,86 @@ export default function Editor({
       TaskItem.configure({ nested: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
-    content: initialContent || "<p></p>",
+    content: (() => {
+      if (typeof window === "undefined") return initialContent || "<p></p>";
+      if (noteId) {
+        const draft = localStorage.getItem(`draft_${noteId}`);
+        if (draft)
+          return JSON.parse(draft).content || initialContent || "<p></p>";
+      }
+      return initialContent || "<p></p>";
+    })(),
     editorProps: {
       attributes: {
         class: "editor-textarea",
         spellcheck: "false",
       },
     },
-    onUpdate: () => forceUpdate(),
+    onUpdate: ({ editor }) => {
+      forceUpdate();
+      if (noteId) {
+        const currentContent = editor.getHTML();
+        if (currentContent === initialContent) {
+          // Content matches saved state — clear draft
+          localStorage.removeItem(`draft_${noteId}`);
+        } else {
+          localStorage.setItem(
+            `draft_${noteId}`,
+            JSON.stringify({ content: currentContent }),
+          );
+        }
+        notifyDraftChange();
+      }
+    },
     onSelectionUpdate: () => forceUpdate(),
     onTransaction: () => forceUpdate(),
   });
 
-  const saveNote = useCallback(async () => {
-    if (!editor) return;
-    setSaving(true);
+  const saveNote = useCallback(
+    async (overrideTitle?: string) => {
+      if (!editor) return;
+      setSaving(true);
+      if (noteId) localStorage.removeItem(`draft_${noteId}`);
 
-    const content = editor.getHTML();
+      const content = editor.getHTML();
+      const finalTitle = overrideTitle ?? title;
 
-    const res = await fetch("/api/notes", {
-      method: noteId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: noteId, title, content }),
-    });
+      const res = await fetch("/api/notes", {
+        method: noteId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: noteId, title: finalTitle, content }),
+      });
 
-    const data = res.ok ? await res.json() : null;
+      const data = res.ok ? await res.json() : null;
 
-    if (res.ok && data) {
-      localStorage.removeItem("draft");
-      document.cookie = `lastNoteId=${data.id}; path=/; max-age=31536000`;
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      refresh();
-    }
-    setSaving(false);
-  }, [editor, noteId, title, refresh]);
+      if (res.ok && data) {
+        localStorage.removeItem(`draft_${noteId ?? "new"}`);
+        document.cookie = `lastNoteId=${data.id}; path=/; max-age=31536000`;
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+        refresh();
+        if (!noteId) router.replace(`/notes/${data.id}`);
+      }
+      setSaving(false);
+    },
+    [editor, noteId, title, refresh, router],
+  );
+
+  const getFirstLine = useCallback(() => {
+    const text = editor?.getText() ?? "";
+    const firstLine = text.split("\n").find((line) => line.trim() !== "") ?? "";
+    return firstLine.trim();
+  }, [editor]);
 
   const handleQuickSave = useCallback(async () => {
     if (!title) {
+      const firstLine = getFirstLine();
+      setPromptTitle(firstLine || "Untitled");
       setShowTitlePrompt(true);
       return;
     }
     await saveNote();
-  }, [title, saveNote]);
+  }, [title, saveNote, getFirstLine]);
 
   const chars = editor?.getText().length;
   const words = editor?.getText().split(/\s+/).filter(Boolean).length;
@@ -121,59 +162,68 @@ export default function Editor({
     refresh();
   }
 
-  const handleSmartSave = useCallback(async () => {
-    if (!title) {
-      setShowTitlePrompt(true);
-      return;
-    }
-    if (!editor) return;
-    setSmartSaving(true);
-
-    const raw = editor.getHTML();
-    const res = await fetch("/api/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: raw, mode: "clean" }),
-    });
-
-    let cleaned = raw;
-    if (res.body) {
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let result = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        result += decoder.decode(value, { stream: true });
+  const handleSmartSave = useCallback(
+    async (overrideTitle?: string) => {
+      const finalTitle = overrideTitle ?? title;
+      if (!finalTitle) {
+        const firstLine = getFirstLine();
+        setPromptTitle(firstLine || "Untitled");
+        setShowTitlePrompt(true);
+        return;
       }
-      cleaned = result;
-      editor.commands.setContent(cleaned);
-    }
+      if (!editor) return;
+      setSmartSaving(true);
 
-    const saveRes = await fetch("/api/notes", {
-      method: noteId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: noteId,
-        title,
-        content: cleaned,
-        rawContent: raw,
-        saveMode: "SMART",
-      }),
-    });
+      if (noteId) localStorage.removeItem(`draft_${noteId}`);
 
-    const data = saveRes.ok ? await saveRes.json() : null;
+      const raw = editor.getHTML();
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: raw, mode: "clean" }),
+      });
 
-    if (saveRes.ok && data) {
-      localStorage.removeItem("draft");
-      document.cookie = `lastNoteId=${data.id}; path=/; max-age=31536000`;
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      refresh();
-    }
+      let cleaned = raw;
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let result = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          result += decoder.decode(value, { stream: true });
+        }
+        cleaned = result;
+        editor.commands.setContent(cleaned);
+      }
 
-    setSmartSaving(false);
-  }, [editor, noteId, title, refresh]);
+      const saveRes = await fetch("/api/notes", {
+        method: noteId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: noteId,
+          title: finalTitle,
+          content: cleaned,
+          rawContent: raw,
+          saveMode: "SMART",
+        }),
+      });
+
+      const data = saveRes.ok ? await saveRes.json() : null;
+
+      if (saveRes.ok && data) {
+        localStorage.removeItem(`draft_${noteId ?? "new"}`);
+        document.cookie = `lastNoteId=${data.id}; path=/; max-age=31536000`;
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+        refresh();
+        if (!noteId) router.replace(`/notes/${data.id}`);
+      }
+
+      setSmartSaving(false);
+    },
+    [editor, noteId, title, refresh, router, getFirstLine],
+  );
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -218,10 +268,11 @@ export default function Editor({
           ) : (
             <div
               className="editor-note-title"
-              onClick={() => noteId && setEditingTitle(true)}
+              onClick={() => setEditingTitle(true)}
             >
               <span>{title || "Untitled"}</span>
-              {noteId && <Pencil size={12} />}
+
+              <Pencil size={12} />
             </div>
           )}
         </div>
@@ -236,7 +287,7 @@ export default function Editor({
           </button>
           <button
             className={smartSaving ? "btn-saved" : "btn-smart-save"}
-            onClick={handleSmartSave}
+            onClick={() => handleSmartSave()}
             disabled={smartSaving || saving}
             title="Smart Save — AI organizes then saves (Ctrl+Shift+S)"
           >
@@ -408,7 +459,9 @@ export default function Editor({
       </div>
 
       <AiToolbar editor={editor} onTitleChange={(t) => setTitle(t)} />
-      <EditorContent editor={editor} />
+      <div className="editor-content-wrapper">
+        <EditorContent editor={editor} />
+      </div>
 
       <div className="editor-statusbar">
         <span>{chars} chars</span>
@@ -418,37 +471,45 @@ export default function Editor({
       {showTitlePrompt && (
         <div className="title-prompt-overlay">
           <div className="title-prompt-box">
-            <h3>Name your note</h3>
+            <h3>File Name</h3>
             <input
               type="text"
-              placeholder="Give this note a title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={promptTitle}
+              onChange={(e) => setPromptTitle(e.target.value)}
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter" && title) {
+                if (e.key === "Enter") {
+                  const t = promptTitle || "Untitled";
+                  setTitle(t);
                   setShowTitlePrompt(false);
-                  saveNote();
+                  saveNote(t);
                 }
-                if (e.key === "Escape") setShowTitlePrompt(false);
+                if (e.key === "Escape") {
+                  setShowTitlePrompt(false);
+                }
               }}
             />
             <div className="title-prompt-actions">
               <button
-                className="btn-secondary"
-                onClick={() => setShowTitlePrompt(false)}
-              >
-                Cancel
-              </button>
-              <button
                 className="btn-primary"
                 onClick={() => {
+                  const t = promptTitle || "Untitled";
+                  setTitle(t);
                   setShowTitlePrompt(false);
-                  saveNote();
+                  saveNote(t);
                 }}
-                disabled={!title}
+                disabled={!promptTitle}
               >
                 Save
+              </button>
+
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setShowTitlePrompt(false);
+                }}
+              >
+                Cancel
               </button>
             </div>
           </div>

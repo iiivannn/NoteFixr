@@ -11,10 +11,22 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    include: { notes: { orderBy: { updatedAt: "desc" } } },
+    select: { id: true },
   });
 
-  return NextResponse.json({ notes: user?.notes ?? [] });
+  if (!user) return NextResponse.json({ notes: [] });
+
+  const notes = await prisma.note.findMany({
+    where: { userId: user.id },
+    orderBy: [{ updatedAt: "desc" }],
+    select: {
+      id: true,
+      title: true,
+      updatedAt: true,
+    },
+  });
+
+  return NextResponse.json({ notes });
 }
 
 export async function POST(req: Request) {
