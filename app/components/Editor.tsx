@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState, useReducer } from "react";
+import { useCallback, useState, useReducer, useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -47,6 +47,7 @@ export default function Editor({
   const { refresh, setSidebarOpen, sidebarOpen } = useNotes();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [smartSaving, setSmartSaving] = useState(false);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -106,10 +107,8 @@ export default function Editor({
     await saveNote();
   }, [title, saveNote]);
 
-  if (!editor) return null;
-
-  const chars = editor.getText().length;
-  const words = editor.getText().split(/\s+/).filter(Boolean).length;
+  const chars = editor?.getText().length;
+  const words = editor?.getText().split(/\s+/).filter(Boolean).length;
 
   async function handleTitleSave() {
     setEditingTitle(false);
@@ -121,6 +120,76 @@ export default function Editor({
     });
     refresh();
   }
+
+  const handleSmartSave = useCallback(async () => {
+    if (!title) {
+      setShowTitlePrompt(true);
+      return;
+    }
+    if (!editor) return;
+    setSmartSaving(true);
+
+    const raw = editor.getHTML();
+    const res = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: raw, mode: "clean" }),
+    });
+
+    let cleaned = raw;
+    if (res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        result += decoder.decode(value, { stream: true });
+      }
+      cleaned = result;
+      editor.commands.setContent(cleaned);
+    }
+
+    const saveRes = await fetch("/api/notes", {
+      method: noteId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: noteId,
+        title,
+        content: cleaned,
+        rawContent: raw,
+        saveMode: "SMART",
+      }),
+    });
+
+    const data = saveRes.ok ? await saveRes.json() : null;
+
+    if (saveRes.ok && data) {
+      localStorage.removeItem("draft");
+      document.cookie = `lastNoteId=${data.id}; path=/; max-age=31536000`;
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      refresh();
+    }
+
+    setSmartSaving(false);
+  }, [editor, noteId, title, refresh]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey && e.shiftKey && e.key === "S") {
+        e.preventDefault();
+        handleSmartSave();
+      } else if (e.ctrlKey && e.key === "s") {
+        e.preventDefault();
+        handleQuickSave();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleQuickSave, handleSmartSave]);
+
+  if (!editor) return null;
 
   return (
     <div className="editor-wrapper">
@@ -161,8 +230,17 @@ export default function Editor({
             className={saved ? "btn-saved" : "btn-save"}
             onClick={handleQuickSave}
             disabled={saving}
+            title="Quick Save (Ctrl+S)"
           >
             {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
+          </button>
+          <button
+            className={smartSaving ? "btn-saved" : "btn-smart-save"}
+            onClick={handleSmartSave}
+            disabled={smartSaving || saving}
+            title="Smart Save — AI organizes then saves (Ctrl+Shift+S)"
+          >
+            {smartSaving ? "Organizing..." : "Smart Save"}
           </button>
           <SettingsMenu />
         </div>

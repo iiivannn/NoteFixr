@@ -49,13 +49,15 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id, title, content } = await req.json();
+  const { id, title, content, rawContent, saveMode } = await req.json();
 
   const note = await prisma.note.update({
     where: { id },
     data: {
       title: title || null,
-      rawContent: content,
+      rawContent: rawContent || content,
+      cleanContent: saveMode === "SMART" ? content : undefined,
+      saveMode: saveMode || "QUICK",
     },
   });
 
