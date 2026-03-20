@@ -25,6 +25,7 @@ import {
   Undo,
   Redo,
   Pencil,
+  Menu,
 } from "lucide-react";
 
 interface EditorProps {
@@ -42,7 +43,7 @@ export default function Editor({
   const [saved, setSaved] = useState(false);
   const [title, setTitle] = useState(initialTitle);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
-  const { refresh } = useNotes();
+  const { refresh, setSidebarOpen, sidebarOpen } = useNotes();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   const [editingTitle, setEditingTitle] = useState(false);
 
@@ -124,6 +125,14 @@ export default function Editor({
   return (
     <div className="editor-wrapper">
       <div className="editor-menubar">
+        <button
+          className="sidebar-hamburger"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          title="Toggle sidebar"
+        >
+          <Menu size={16} />
+        </button>
+
         <div className="editor-note-title-wrapper">
           {editingTitle ? (
             <input
