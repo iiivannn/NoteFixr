@@ -1,0 +1,55 @@
+@media (max-width: 768px) {
+  .sidebar-hamburger {
+    display: flex;
+  }
+  .sidebar-toggle {
+    display: none !important;
+  }
+  .sidebar-close-mobile {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    width: var(--sidebar-width) !important;
+    min-width: var(--sidebar-width) !important;
+
+    &--open {
+      transform: translateX(0);
+    }
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 49;
+
+    &--visible {
+      display: block;
+    }
+  }
+
+  .editor-toolbar {
+    overflow-x: auto;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .ProseMirror {
+    padding: 16px;
+  }
+  .editor-menubar {
+    gap: 6px;
+  }
+  .editor-note-title-wrapper {
+    max-width: 160px;
+  }
+}

@@ -1,0 +1,126 @@
+.settings-menu {
+  position: relative;
+}
+
+.settings-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition:
+    background 0.1s,
+    color 0.1s;
+
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+}
+
+.settings-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.settings-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+
+  span {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  button {
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    &:hover {
+      color: var(--text);
+    }
+  }
+}
+
+.settings-dropdown-items {
+  padding: 4px;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text);
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+  &--danger {
+    color: #e05252;
+  }
+}
+
+.settings-section-label {
+  font-size: 11px;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 6px 10px 4px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.theme-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 0 6px 6px;
+}
+
+.theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: all 0.1s;
+
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
+  &.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}

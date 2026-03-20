@@ -1,5 +1,5 @@
 import Sidebar from "../components/Sidebar";
-import "../styles/app.scss";
+import "../styles/app/index.scss";
 import { NotesProvider } from "../lib/notes-context";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
