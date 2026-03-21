@@ -23,6 +23,7 @@ export async function GET() {
       id: true,
       title: true,
       updatedAt: true,
+      pinned: true,
     },
   });
 

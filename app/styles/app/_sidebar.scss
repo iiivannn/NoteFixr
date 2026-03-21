@@ -248,16 +248,67 @@
   display: inline-block;
 }
 
-@media (max-width: 768px) {
-  .sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 49;
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 8px 10px 4px;
+}
 
-    &--visible {
-      display: block;
-    }
+.sidebar-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.note-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.note-title {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.note-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--text-subtle);
+  opacity: 0;
+  flex-shrink: 0;
+  transition:
+    opacity 0.1s,
+    color 0.1s,
+    background 0.1s;
+
+  &--active {
+    opacity: 1;
+    color: var(--accent);
   }
+
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--accent);
+  }
+}
+
+.sidebar-note-item:hover .note-pin-btn {
+  opacity: 1;
 }

@@ -2,12 +2,20 @@
 import { useEffect, useState, useReducer } from "react";
 import { useRouter } from "next/navigation";
 import { useNotes } from "../lib/notes-context";
-import { Trash2, PanelLeftClose, PanelLeftOpen, X, Plus } from "lucide-react";
+import {
+  Trash2,
+  Pin,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+  Plus,
+} from "lucide-react";
 
 interface Note {
   id: string;
   title: string | null;
   updatedAt: string;
+  pinned: boolean;
 }
 
 export default function Sidebar() {
@@ -18,6 +26,11 @@ export default function Sidebar() {
     useNotes();
   const [collapsed, setCollapsed] = useState(false);
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  const filtered = notes.filter((n) =>
+    (n.title ?? "Untitled").toLowerCase().includes(search.toLowerCase()),
+  );
+  const pinnedNotes = filtered.filter((n) => n.pinned);
+  const unpinnedNotes = filtered.filter((n) => !n.pinned);
 
   useEffect(() => {
     forceUpdate();
@@ -36,10 +49,6 @@ export default function Sidebar() {
       .then((res) => res.json())
       .then((data) => setNotes(data.notes ?? []));
   }, [refreshKey]);
-
-  const filtered = notes.filter((n) =>
-    (n.title ?? "Untitled").toLowerCase().includes(search.toLowerCase()),
-  );
 
   function openNote(id: string) {
     router.push(`/notes/${id}`);
@@ -74,6 +83,62 @@ export default function Sidebar() {
   function hasDraft(id: string) {
     if (typeof window === "undefined") return false;
     return !!localStorage.getItem(`draft_${id}`);
+  }
+
+  async function handlePin(id: string, pinned: boolean) {
+    await fetch("/api/notes/pin", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, pinned: !pinned }),
+    });
+    refresh();
+  }
+
+  function noteItem(note: Note) {
+    return (
+      <div
+        key={note.id}
+        className={`sidebar-note-item ${note.pinned ? "sidebar-note-item--pinned" : ""}`}
+        onClick={() => openNote(note.id)}
+      >
+        <div className="note-title-row">
+          <span className="note-title">
+            {note.title ?? "Untitled"}
+            {hasDraft(note.id) && (
+              <span className="unsaved-dot" title="Unsaved changes" />
+            )}
+          </span>
+          <button
+            className={`note-pin-btn ${note.pinned ? "note-pin-btn--active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePin(note.id, note.pinned);
+            }}
+            title={note.pinned ? "Unpin" : "Pin"}
+          >
+            <Pin size={14} />
+          </button>
+        </div>
+
+        <div className="note-item-footer">
+          <span className="note-date">
+            {new Date(note.updatedAt).toLocaleDateString()}
+          </span>
+          <div className="note-item-actions">
+            <button
+              className="note-delete-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(note.id);
+              }}
+              title="Delete note"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -129,38 +194,26 @@ export default function Sidebar() {
               onChange={(e) => setSearch(e.target.value)}
             />
             <div className="sidebar-notes">
-              {filtered.length === 0 && (
+              {pinnedNotes.length === 0 && unpinnedNotes.length === 0 && (
                 <p className="sidebar-empty">No notes yet</p>
               )}
-              {filtered.map((note) => (
-                <div
-                  key={note.id}
-                  className="sidebar-note-item"
-                  onClick={() => openNote(note.id)}
-                >
-                  <span className="note-title">
-                    {note.title ?? "Untitled"}
-                    {hasDraft(note.id) && (
-                      <span className="unsaved-dot" title="Unsaved changes" />
-                    )}
-                  </span>
-                  <div className="note-item-footer">
-                    <span className="note-date">
-                      {new Date(note.updatedAt).toLocaleDateString()}
-                    </span>
-                    <button
-                      className="note-delete-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(note.id);
-                      }}
-                      title="Delete note"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+
+              {pinnedNotes.length > 0 && (
+                <>
+                  <p className="sidebar-section-label">Pinned</p>
+                  {pinnedNotes.map((note) => noteItem(note))}
+                  <div className="sidebar-section-divider" />
+                </>
+              )}
+
+              {unpinnedNotes.length > 0 && (
+                <>
+                  {pinnedNotes.length > 0 && (
+                    <p className="sidebar-section-label">Notes</p>
+                  )}
+                  {unpinnedNotes.map((note) => noteItem(note))}
+                </>
+              )}
             </div>
           </>
         )}
