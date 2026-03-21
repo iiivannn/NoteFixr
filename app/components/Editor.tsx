@@ -11,6 +11,9 @@ import { useNotes } from "../lib/notes-context";
 import SettingsMenu from "./SettingsMenu";
 import AiToolbar from "./AiToolbar";
 import { useRouter } from "next/navigation";
+import FloatingAiPrompt from "./FloatingAiPrompt";
+import Toast from "./Toast";
+import { useToast } from "../lib/useToast";
 
 import {
   Bold,
@@ -52,6 +55,7 @@ export default function Editor({
   const [smartSaving, setSmartSaving] = useState(false);
   const router = useRouter();
   const [promptTitle, setPromptTitle] = useState("");
+  const { toast, showToast, hideToast } = useToast();
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -87,7 +91,6 @@ export default function Editor({
       if (noteId) {
         const currentContent = editor.getHTML();
         if (currentContent === initialContent) {
-          // Content matches saved state — clear draft
           localStorage.removeItem(`draft_${noteId}`);
         } else {
           localStorage.setItem(
@@ -458,7 +461,11 @@ export default function Editor({
         </button>
       </div>
 
-      <AiToolbar editor={editor} onTitleChange={(t) => setTitle(t)} />
+      <AiToolbar
+        editor={editor}
+        onTitleChange={(t) => setTitle(t)}
+        showToast={showToast}
+      />
       <div className="editor-content-wrapper">
         <EditorContent editor={editor} />
       </div>
@@ -514,6 +521,17 @@ export default function Editor({
             </div>
           </div>
         </div>
+      )}
+
+      <FloatingAiPrompt editor={editor} showToast={showToast} />
+
+      {toast && (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
       )}
     </div>
   );

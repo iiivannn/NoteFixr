@@ -21,7 +21,7 @@
 .ProseMirror {
   flex: 1;
   min-height: 100%;
-  padding: 24px 32px;
+  padding: 24px 32px 120px;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-mono);
@@ -112,5 +112,55 @@
   &::-webkit-scrollbar-thumb {
     background: var(--border-strong);
     border-radius: 3px;
+  }
+}
+
+[data-ai-generated="true"] {
+  position: relative;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  margin: 8px 0;
+
+  &::before {
+    content: "AI";
+    position: absolute;
+    top: 0;
+    left: -32px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+    background: var(--accent-light);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
+.ai-generated-content {
+  position: relative;
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+  margin: 4px 0;
+
+  &::before {
+    content: "AI";
+    position: absolute;
+    top: 4px;
+    left: -28px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+    background: var(--accent-light);
+    padding: 1px 4px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &:hover::before {
+    opacity: 1;
   }
 }
