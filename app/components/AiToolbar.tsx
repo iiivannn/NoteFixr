@@ -1,19 +1,14 @@
 "use client";
 import { useState } from "react";
 import { Editor } from "@tiptap/react";
-import { Wand2, FileText, ListChecks, Tag, Loader2 } from "lucide-react";
+import { Wand2, FileText, ListChecks, ScanText, Loader2 } from "lucide-react";
 
 interface AiToolbarProps {
   editor: Editor;
-  onTitleChange: (title: string) => void;
   showToast: (message: string, type: "success" | "error") => void;
 }
 
-export default function AiToolbar({
-  editor,
-  onTitleChange,
-  showToast,
-}: AiToolbarProps) {
+export default function AiToolbar({ editor, showToast }: AiToolbarProps) {
   const [loading, setLoading] = useState<string | null>(null);
 
   async function runAction(mode: string) {
@@ -22,23 +17,6 @@ export default function AiToolbar({
 
     try {
       const content = editor.getHTML();
-
-      if (mode === "titleTag") {
-        const res = await fetch("/api/ai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, mode }),
-        });
-        const data = await res.json();
-        if (data.title) {
-          onTitleChange(data.title);
-          showToast("Title and tags generated successfully", "success");
-        } else {
-          showToast("Could not generate title — try again", "error");
-        }
-        setLoading(null);
-        return;
-      }
 
       const res = await fetch("/api/ai", {
         method: "POST",
@@ -74,7 +52,9 @@ export default function AiToolbar({
           ? "Note cleaned and organized"
           : mode === "summarize"
             ? "Note summarized"
-            : "Tasks extracted",
+            : mode === "extractTasks"
+              ? "Tasks extracted"
+              : "Note elaborated",
         "success",
       );
     } catch {
@@ -131,17 +111,17 @@ export default function AiToolbar({
       </button>
 
       <button
-        className={`ai-btn ${loading === "titleTag" ? "ai-btn--loading" : ""}`}
-        onClick={() => runAction("titleTag")}
+        className={`ai-btn ${loading === "elaborate" ? "ai-btn--loading" : ""}`}
+        onClick={() => runAction("elaborate")}
         disabled={!!loading}
-        title="Auto-title & Tag"
+        title="Explains the content further"
       >
-        {loading === "titleTag" ? (
+        {loading === "elaborate" ? (
           <Loader2 size={13} className="spin" />
         ) : (
-          <Tag size={13} />
+          <ScanText size={13} />
         )}
-        Auto-title
+        Elaborate
       </button>
     </div>
   );

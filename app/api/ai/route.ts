@@ -10,6 +10,9 @@ const groq = new Groq({
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
+  const TASKS_MODEL = "moonshotai/kimi-k2-instruct";
+  const WEB_SEARCH_MODEL = "groq/compound";
+
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -28,32 +31,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
   }
 
-  if (mode === "titleTag") {
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 200,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content },
-      ],
-    });
-
-    const text = completion.choices[0]?.message?.content ?? "";
-
-    try {
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
-      return NextResponse.json(parsed);
-    } catch {
-      return NextResponse.json(
-        { error: "Failed to parse AI response" },
-        { status: 500 },
-      );
-    }
-  }
+  const model =
+    mode === "clean" || mode === "summarize" || mode === "extractTasks"
+      ? TASKS_MODEL
+      : WEB_SEARCH_MODEL;
 
   const stream = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model,
     max_tokens: 2048,
     stream: true,
     messages: [

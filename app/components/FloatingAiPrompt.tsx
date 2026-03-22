@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Editor } from "@tiptap/react";
-import { ArrowUp, Minus } from "lucide-react";
-import { isRefusal } from "../lib/utils";
+import { ArrowUp, Minus, Sparkles } from "lucide-react";
 
 interface FloatingAiPromptProps {
   editor: Editor | null;
@@ -10,12 +9,18 @@ interface FloatingAiPromptProps {
 }
 
 const PLACEHOLDERS = [
-  "Create something beautiful...",
-  "Type your queries...",
-  "Always ready to fix your notes...",
-  "Summarize this for me...",
+  "Ask me anything about your note...",
+  "Clean and organize this for me...",
+  "Summarize the key points...",
+  "Extract all action items...",
+  "Explain this concept further...",
+  "Fix the grammar and structure...",
+  "What does this section mean?",
+  "Turn this into a task list...",
+  "Search the web for more context...",
   "Make this more professional...",
-  "Extract the key points...",
+  "Simplify this for me...",
+  "What can NoteFixr do?",
 ];
 
 const GRID_COLS = 24;
@@ -103,13 +108,26 @@ export default function FloatingAiPrompt({
         return;
       }
 
-      if (isRefusal(result)) {
-        showToast("AI couldn't process this request — try rephrasing", "error");
-        setLoading(false);
-        return;
+      try {
+        const parsed = JSON.parse(result);
+        if (parsed.refused) {
+          showToast(parsed.reason, "error");
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // not JSON — valid HTML, proceed
       }
 
-      editor.commands.setContent(result);
+      const currentContent = editor.getHTML();
+      const hasContent =
+        currentContent !== "<p></p>" && currentContent.trim() !== "";
+
+      if (hasContent) {
+        editor.commands.insertContent(`${result}<p></p>`);
+      } else {
+        editor.commands.setContent(result);
+      }
       showToast("AI has updated your note", "success");
     } catch {
       showToast("Something went wrong — please try again", "error");
@@ -145,11 +163,11 @@ export default function FloatingAiPrompt({
           onClick={() => setMinimized(false)}
           title="Open AI prompt"
         >
-          ✦ Ask AI
+          <Sparkles size={14} /> Ask AI
         </button>
       ) : (
         <div className="floating-ai-wrapper">
-          <div className="floating-ai-inner">
+          <label htmlFor="ai-chat" className="floating-ai-inner">
             <input
               ref={inputRef}
               className="floating-ai-input"
@@ -161,6 +179,7 @@ export default function FloatingAiPrompt({
               }}
               placeholder={placeholderText}
               disabled={loading}
+              id="ai-chat"
             />
             <button
               className="floating-ai-minimize"
@@ -177,7 +196,7 @@ export default function FloatingAiPrompt({
             >
               <ArrowUp size={14} />
             </button>
-          </div>
+          </label>
         </div>
       )}
     </div>
