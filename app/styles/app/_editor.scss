@@ -463,6 +463,9 @@
   font-family: var(--font-mono);
   box-shadow: var(--shadow);
   transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 
   &:hover {
     border-color: var(--accent);
