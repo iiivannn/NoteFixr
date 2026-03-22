@@ -68,7 +68,12 @@ export default function Editor({
       Underline,
       Highlight,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: {
+          class: "task-item",
+        },
+      }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
     content: (() => {
@@ -84,6 +89,15 @@ export default function Editor({
       attributes: {
         class: "editor-textarea",
         spellcheck: "false",
+      },
+      handleKeyDown(view, event) {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          const { state, dispatch } = view;
+          dispatch(state.tr.insertText("\u00a0\u00a0\u00a0\u00a0"));
+          return true;
+        }
+        return false;
       },
     },
     onUpdate: ({ editor }) => {
@@ -271,11 +285,11 @@ export default function Editor({
           ) : (
             <div
               className="editor-note-title"
-              onClick={() => setEditingTitle(true)}
+              onClick={() => noteId && setEditingTitle(true)}
+              style={{ cursor: noteId ? "pointer" : "default" }}
             >
               <span>{title || "Untitled"}</span>
-
-              <Pencil size={12} />
+              {noteId && <Pencil size={12} />}
             </div>
           )}
         </div>
@@ -286,7 +300,7 @@ export default function Editor({
             disabled={saving}
             title="Quick Save (Ctrl+S)"
           >
-            {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
+            {saving ? "Saving..." : saved ? "Saved" : "Save"}
           </button>
           <button
             className={smartSaving ? "btn-saved" : "btn-smart-save"}
@@ -306,19 +320,19 @@ export default function Editor({
           onChange={(e) => {
             const val = e.target.value;
             switch (val) {
-              case "heading":
+              case "h1":
                 editor.chain().focus().setHeading({ level: 1 }).run();
                 break;
-              case "subheading":
+              case "h2":
                 editor.chain().focus().setHeading({ level: 2 }).run();
                 break;
-              case "title":
+              case "h3":
                 editor.chain().focus().setHeading({ level: 3 }).run();
                 break;
-              case "subtitle":
+              case "subheading":
                 editor.chain().focus().setHeading({ level: 4 }).run();
                 break;
-              case "caption":
+              case "subtext":
                 editor.chain().focus().setHeading({ level: 6 }).run();
                 break;
               default:
@@ -328,24 +342,24 @@ export default function Editor({
           }}
           value={
             editor.isActive("heading", { level: 1 })
-              ? "heading"
+              ? "h1"
               : editor.isActive("heading", { level: 2 })
-                ? "subheading"
+                ? "h2"
                 : editor.isActive("heading", { level: 3 })
-                  ? "title"
+                  ? "h3"
                   : editor.isActive("heading", { level: 4 })
-                    ? "subtitle"
+                    ? "subheading"
                     : editor.isActive("heading", { level: 6 })
-                      ? "caption"
+                      ? "subtext"
                       : "body"
           }
         >
-          <option value="heading">Heading</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
           <option value="subheading">Subheading</option>
-          <option value="title">Title</option>
-          <option value="subtitle">Subtitle</option>
           <option value="body">Body</option>
-          <option value="caption">Caption</option>
+          <option value="subtext">Subtext</option>
         </select>
 
         <div className="toolbar-divider" />
@@ -461,11 +475,7 @@ export default function Editor({
         </button>
       </div>
 
-      <AiToolbar
-        editor={editor}
-        onTitleChange={(t) => setTitle(t)}
-        showToast={showToast}
-      />
+      <AiToolbar editor={editor} showToast={showToast} />
       <div className="editor-content-wrapper">
         <EditorContent editor={editor} />
       </div>

@@ -24,6 +24,7 @@ export async function GET() {
       title: true,
       updatedAt: true,
       pinned: true,
+      rawContent: true,
     },
   });
 

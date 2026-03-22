@@ -10,12 +10,14 @@ import {
   X,
   Plus,
 } from "lucide-react";
+import DeleteModal from "./DeleteModal";
 
 interface Note {
   id: string;
   title: string | null;
   updatedAt: string;
   pinned: boolean;
+  rawContent: string;
 }
 
 export default function Sidebar() {
@@ -26,11 +28,31 @@ export default function Sidebar() {
     useNotes();
   const [collapsed, setCollapsed] = useState(false);
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-  const filtered = notes.filter((n) =>
-    (n.title ?? "Untitled").toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = notes.filter((n) => {
+    const query = search.toLowerCase();
+    const titleMatch = (n.title ?? "Untitled").toLowerCase().includes(query);
+
+    const savedContent = (n.rawContent ?? "")
+      .replace(/<[^>]*>/g, "")
+      .toLowerCase();
+    const savedMatch = savedContent.includes(query);
+
+    const draft = localStorage.getItem(`draft_${n.id}`);
+    const draftContent = draft
+      ? JSON.parse(draft)
+          .content.replace(/<[^>]*>/g, "")
+          .toLowerCase()
+      : "";
+    const draftMatch = draftContent.includes(query);
+
+    return titleMatch || savedMatch || draftMatch;
+  });
   const pinnedNotes = filtered.filter((n) => n.pinned);
   const unpinnedNotes = filtered.filter((n) => !n.pinned);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     forceUpdate();
@@ -52,32 +74,6 @@ export default function Sidebar() {
 
   function openNote(id: string) {
     router.push(`/notes/${id}`);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this note?")) return;
-
-    await fetch("/api/notes", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-
-    const cookies = document.cookie.split(";");
-    const lastNoteId = cookies
-      .find((c) => c.trim().startsWith("lastNoteId="))
-      ?.split("=")[1];
-
-    function clearLastNoteIdCookie() {
-      document.cookie = "lastNoteId=; path=/; max-age=0";
-    }
-
-    if (lastNoteId === id) {
-      clearLastNoteIdCookie();
-    }
-
-    refresh();
-    router.push("/notes/new");
   }
 
   function hasDraft(id: string) {
@@ -129,7 +125,7 @@ export default function Sidebar() {
               className="note-delete-btn"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete(note.id);
+                handleDelete(note.id, note.title ?? "Untitled");
               }}
               title="Delete note"
             >
@@ -139,6 +135,35 @@ export default function Sidebar() {
         </div>
       </div>
     );
+  }
+
+  async function handleDelete(id: string, title: string) {
+    setDeleteTarget({ id, title });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+
+    await fetch("/api/notes", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: deleteTarget.id }),
+    });
+
+    const cookies = document.cookie.split(";");
+    const lastNoteId = cookies
+      .find((c) => c.trim().startsWith("lastNoteId="))
+      ?.split("=")[1];
+
+    function clearLastNoteIdCookie() {
+      document.cookie = "lastNoteId=; path=/; max-age=0";
+    }
+
+    if (lastNoteId === deleteTarget.id) clearLastNoteIdCookie();
+
+    setDeleteTarget(null);
+    refresh();
+    router.push("/notes/new");
   }
 
   return (
@@ -218,6 +243,14 @@ export default function Sidebar() {
           </>
         )}
       </aside>
+
+      {deleteTarget && (
+        <DeleteModal
+          noteName={deleteTarget.title}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </>
   );
 }
