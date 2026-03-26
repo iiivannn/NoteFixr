@@ -39,6 +39,15 @@ interface EditorProps {
   initialTitle?: string;
 }
 
+const SMART_SAVE_MESSAGES = [
+  "Analyzing note...",
+  "Cleaning structure...",
+  "Organizing thoughts...",
+  "Removing clutter...",
+  "Polishing content...",
+  "Almost there...",
+];
+
 export default function Editor({
   noteId,
   initialContent = "",
@@ -56,6 +65,28 @@ export default function Editor({
   const router = useRouter();
   const [promptTitle, setPromptTitle] = useState("");
   const { toast, showToast, hideToast } = useToast();
+  const [smartSavingIndex, setSmartSavingIndex] = useState(0);
+  const [smartSavingFade, setSmartSavingFade] = useState(true);
+
+  useEffect(() => {
+    if (!smartSaving) {
+      const reset = setTimeout(() => {
+        setSmartSavingIndex(0);
+        setSmartSavingFade(true);
+      }, 0);
+      return () => clearTimeout(reset);
+    }
+
+    const interval = setInterval(() => {
+      setSmartSavingFade(false);
+      setTimeout(() => {
+        setSmartSavingIndex((i) => (i + 1) % SMART_SAVE_MESSAGES.length);
+        setSmartSavingFade(true);
+      }, 300);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [smartSaving]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -307,8 +338,21 @@ export default function Editor({
             onClick={() => handleSmartSave()}
             disabled={smartSaving || saving}
             title="Smart Save — AI organizes then saves (Ctrl+Shift+S)"
+            style={{ transition: "opacity 0.3s ease" }}
           >
-            {smartSaving ? "Organizing..." : "Smart Save"}
+            {smartSaving ? (
+              <span
+                style={{
+                  opacity: smartSavingFade ? 1 : 0,
+                  transition: "opacity 0.3s ease",
+                  display: "inline-block",
+                }}
+              >
+                {SMART_SAVE_MESSAGES[smartSavingIndex]}
+              </span>
+            ) : (
+              "Smart Save"
+            )}
           </button>
           <SettingsMenu />
         </div>

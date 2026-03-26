@@ -5,25 +5,11 @@ import { NextResponse } from "next/server";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const TASKS_MODEL = "moonshotai/kimi-k2-instruct";
+const TASKS_MODEL = "moonshotai/kimi-k2-instruct";
+const CHUNK_SIZE = 40000;
 
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { content, query } = await req.json();
-
-  const stream = await groq.chat.completions.create({
-    model: TASKS_MODEL,
-    max_tokens: 2048,
-    stream: true,
-    messages: [
-      {
-        role: "system",
-        content: `You are an AI assistant embedded inside NoteFixr, a note-taking application.
-
+const SYSTEM_PROMPT = `You are an AI assistant embedded inside NoteFixr, a note-taking application.
+        
         RESPONSE RULES:
         - Never use markdown syntax (##, **, *, \`\`\`, dashes for lists) — always use proper HTML
 
@@ -63,7 +49,7 @@ export async function POST(req: Request) {
         - Every section ends with <br/> after its last content block
         - Do NOT add <br/> before or after a heading
         - Do NOT add <br/> between a heading and its first content line
-        - Format bullet points as <ul><li> and numbered steps as <ol><li>
+        - Format bullet points as <ul><li> and numbered lists as <ol><li>
         - For CSV or comma-separated data, convert to a <pre><code> block with columns aligned using spaces — the first row is always the header separated by a blank line from the data rows
         - To align columns: find the longest value in each column, then pad every value in that column with spaces to match that length
         - For code, terminal output, file paths, or schema definitions, wrap in <pre><code> blocks
@@ -156,8 +142,101 @@ export async function POST(req: Request) {
         - Register with name, email, and password
         - Sessions managed by NextAuth with JWT strategy
 
-        If a user asks what NoteFixr can do, list these features clearly and in a structured way. If a user asks how to perform an action, guide them using the correct feature or keyboard shortcut. If a user asks who created NoteFixr, the answer is Ivan Abillon. If a user asks about NoteFixr — what it is, what it does, who made it, its features, its tech stack, or anything related to it — always refer to and use the information provided in the ABOUT NOTEFIXR section above to answer accurately and completely.`,
+        If a user asks what NoteFixr can do, list these features clearly and in a structured way. If a user asks how to perform an action, guide them using the correct feature or keyboard shortcut. If a user asks who created NoteFixr, the answer is Ivan Abillon. If a user asks about NoteFixr — what it is, what it does, who made it, its features, its tech stack, or anything related to it — always refer to and use the information provided in the ABOUT NOTEFIXR section above to answer accurately and completely.`;
+
+function splitIntoChunks(content: string, maxChars: number): string[] {
+  if (content.length <= maxChars) return [content];
+
+  const chunks: string[] = [];
+  const paragraphs = content.split(/(?<=<\/p>|<\/h[1-6]>|<\/li>|<br\s*\/?>)/i);
+
+  let currentChunk = "";
+  for (const paragraph of paragraphs) {
+    if ((currentChunk + paragraph).length > maxChars && currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = paragraph;
+    } else {
+      currentChunk += paragraph;
+    }
+  }
+  if (currentChunk) chunks.push(currentChunk);
+
+  return chunks;
+}
+
+async function processLongContent(
+  content: string,
+  query: string,
+): Promise<string> {
+  const chunks = splitIntoChunks(content, CHUNK_SIZE);
+  const chunkSummaries: string[] = [];
+
+  const chunkResults = await Promise.all(
+    chunks.map(async (chunk, i) => {
+      const contextPrefix =
+        i > 0 && chunkSummaries[i - 1]
+          ? `[Context from previous sections: ${chunkSummaries[i - 1]}]\n\n`
+          : "";
+
+      const result = await groq.chat.completions.create({
+        model: TASKS_MODEL,
+        max_tokens: 2048,
+        stream: false,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `My note (section ${i + 1} of ${chunks.length}):\n${contextPrefix}${chunk}\n\nMy request: ${query}`,
+          },
+        ],
+      });
+
+      const text = result.choices[0]?.message?.content ?? "";
+      chunkSummaries[i] = text.slice(0, 300).replace(/\s+/g, " ").trim();
+      return text;
+    }),
+  );
+
+  const combined = chunkResults.join("\n");
+
+  const finalResult = await groq.chat.completions.create({
+    model: TASKS_MODEL,
+    max_tokens: 4096,
+    stream: false,
+    messages: [
+      {
+        role: "system",
+        content: `You are a note assembly assistant. You will receive multiple processed sections of a single note that were handled separately. Combine them into one cohesive, well-structured document that fulfills the user's original request: "${query}". Remove duplicate headings or repeated content. Maintain logical flow. Return only clean HTML with no preamble.`,
       },
+      { role: "user", content: combined },
+    ],
+  });
+
+  return finalResult.choices[0]?.message?.content ?? combined;
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { content, query } = await req.json();
+
+  if (content?.length > CHUNK_SIZE) {
+    const result = await processLongContent(content, query);
+    return new Response(result, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const stream = await groq.chat.completions.create({
+    model: TASKS_MODEL,
+    max_tokens: 2048,
+    stream: true,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
         content: `My note:\n${content}\n\nMy request: ${query}`,
