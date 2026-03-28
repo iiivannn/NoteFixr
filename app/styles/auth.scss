@@ -22,6 +22,14 @@
     font-weight: 500;
     color: var(--text);
     margin-bottom: 4px;
+    transition: color 0.15s ease;
+    width: max-content;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      color: var(--accent-hover);
+    }
   }
 
   .auth-subtitle {

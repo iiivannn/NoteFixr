@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import "../../styles/auth.scss";
+import Link from "next/link";
+import { MoreVertical } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -35,7 +37,9 @@ export default function RegisterPage() {
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <p className="auth-logo">NoteFixr</p>
+        <Link href="/" className="auth-logo">
+          NoteFixr <MoreVertical size={18} />
+        </Link>
         <p className="auth-subtitle">Create your account</p>
 
         <form onSubmit={handleSubmit}>
