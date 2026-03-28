@@ -93,6 +93,19 @@
   margin: 4px 0;
 }
 
+.settings-email {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 6px 6px;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
 .theme-switcher {
   display: flex;
   gap: 4px;

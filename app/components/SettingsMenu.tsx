@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { Settings, LogOut, X, Sun, Moon, Monitor } from "lucide-react";
 
@@ -8,6 +8,7 @@ export default function SettingsMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -66,9 +67,15 @@ export default function SettingsMenu() {
 
             <div className="settings-divider" />
 
+            <div className="settings-section-label">Email</div>
+
+            {session?.user?.email && (
+              <div className="settings-email">{session.user.email}</div>
+            )}
+
             <button
               className="settings-item settings-item--danger"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
               <LogOut size={13} />
               Sign out
