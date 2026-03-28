@@ -24,6 +24,13 @@ export default function AiToolbar({ editor, showToast }: AiToolbarProps) {
         body: JSON.stringify({ content, mode }),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        showToast(errData?.error ?? "Something went wrong — please try again", "error");
+        setLoading(null);
+        return;
+      }
+
       if (!res.body) {
         showToast("AI did not return a response", "error");
         setLoading(null);

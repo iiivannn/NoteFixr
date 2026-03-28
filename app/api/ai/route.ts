@@ -8,9 +8,16 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY!,
 });
 
-const TASKS_MODEL = "moonshotai/kimi-k2-instruct";
+const TASKS_MODEL = "openai/gpt-oss-120b";
 const WEB_SEARCH_MODEL = "groq/compound";
 const CHUNK_SIZE = 40000;
+const TPM_LIMIT = 8000;
+
+function estimateMaxTokens(content: string, systemPrompt: string): number {
+  const inputTokens = Math.ceil((content.length + systemPrompt.length) / 4);
+  const available = TPM_LIMIT - inputTokens;
+  return available > 0 ? available : 256;
+}
 
 function splitIntoChunks(content: string, maxChars: number): string[] {
   if (content.length <= maxChars) return [content];
@@ -48,13 +55,14 @@ async function processLongContent(
           ? `[Context from previous sections: ${chunkSummaries[i - 1]}]\n\n`
           : "";
 
+      const userContent = contextPrefix + chunk;
       const result = await groq.chat.completions.create({
         model,
-        max_tokens: 2048,
+        max_tokens: estimateMaxTokens(userContent, systemPrompt),
         stream: false,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: contextPrefix + chunk },
+          { role: "user", content: userContent },
         ],
       });
 
@@ -68,14 +76,15 @@ async function processLongContent(
 
   const combined = chunkResults.join("\n");
 
+  const assemblyPrompt = `You are a note assembly assistant. You will receive multiple cleaned sections of a single note that were processed separately. Combine them into one cohesive, well-structured document. Remove duplicate headings or repeated content. Maintain logical flow. Return only clean HTML.`;
   const finalResult = await groq.chat.completions.create({
     model,
-    max_tokens: 4096,
+    max_tokens: estimateMaxTokens(combined, assemblyPrompt),
     stream: false,
     messages: [
       {
         role: "system",
-        content: `You are a note assembly assistant. You will receive multiple cleaned sections of a single note that were processed separately. Combine them into one cohesive, well-structured document. Remove duplicate headings or repeated content. Maintain logical flow. Return only clean HTML.`,
+        content: assemblyPrompt,
       },
       { role: "user", content: combined },
     ],
@@ -114,21 +123,44 @@ export async function POST(req: Request) {
     mode === "clean" || mode === "summarize" || mode === "elaborate";
 
   if (content.length > CHUNK_SIZE && isChunkableMode) {
-    const result = await processLongContent(content, systemPrompt, model);
-    return new Response(result, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+    try {
+      const result = await processLongContent(content, systemPrompt, model);
+      return new Response(result, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    } catch (err) {
+      const is413 = (err as { status?: number })?.status === 413;
+      return NextResponse.json(
+        { error: is413
+            ? "Your note is too large for the AI to process. Please paste a smaller amount of content and try again."
+            : "Something went wrong — please try again."
+        },
+        { status: is413 ? 413 : 500 },
+      );
+    }
   }
 
-  const stream = await groq.chat.completions.create({
-    model,
-    max_tokens: 2048,
-    stream: true,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content },
-    ],
-  });
+  let stream;
+  try {
+    stream = await groq.chat.completions.create({
+      model,
+      max_tokens: estimateMaxTokens(content, systemPrompt),
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content },
+      ],
+    });
+  } catch (err) {
+    const is413 = (err as { status?: number })?.status === 413;
+    return NextResponse.json(
+      { error: is413
+          ? "Your note is too large for the AI to process. Please paste a smaller amount of content and try again."
+          : "Something went wrong — please try again."
+      },
+      { status: is413 ? 413 : 500 },
+    );
+  }
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({

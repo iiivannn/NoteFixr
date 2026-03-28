@@ -45,7 +45,6 @@ const SMART_SAVE_MESSAGES = [
   "Organizing thoughts...",
   "Removing clutter...",
   "Polishing content...",
-  "Almost there...",
 ];
 
 export default function Editor({
@@ -83,7 +82,7 @@ export default function Editor({
         setSmartSavingIndex((i) => (i + 1) % SMART_SAVE_MESSAGES.length);
         setSmartSavingFade(true);
       }, 300);
-    }, 2000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [smartSaving]);
@@ -232,7 +231,10 @@ export default function Editor({
       });
 
       let cleaned = raw;
-      if (res.body) {
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        showToast(errData?.error ?? "AI failed — note saved as-is", "error");
+      } else if (res.body) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let result = "";
@@ -241,8 +243,10 @@ export default function Editor({
           if (done) break;
           result += decoder.decode(value, { stream: true });
         }
-        cleaned = result;
-        editor.commands.setContent(cleaned);
+        if (result.trim()) {
+          cleaned = result;
+          editor.commands.setContent(cleaned);
+        }
       }
 
       const saveRes = await fetch("/api/notes", {
@@ -270,7 +274,7 @@ export default function Editor({
 
       setSmartSaving(false);
     },
-    [editor, noteId, title, refresh, router, getFirstLine],
+    [editor, noteId, title, refresh, router, getFirstLine, showToast],
   );
 
   useEffect(() => {

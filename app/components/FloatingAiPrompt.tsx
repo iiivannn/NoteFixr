@@ -86,6 +86,13 @@ export default function FloatingAiPrompt({
         body: JSON.stringify({ content: noteContent, query: userQuery }),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        showToast(errData?.error ?? "Something went wrong — please try again", "error");
+        setLoading(false);
+        return;
+      }
+
       if (!res.body) {
         showToast("AI did not return a response", "error");
         setLoading(false);
@@ -123,10 +130,16 @@ export default function FloatingAiPrompt({
       const hasContent =
         currentContent !== "<p></p>" && currentContent.trim() !== "";
 
-      if (hasContent) {
-        editor.commands.insertContent(`${result}<p></p>`);
-      } else {
+      const replaceKeywords = /\b(clean|organize|fix|restructure|rewrite|format|correct|reformat|tidy|proofread|revise|summarize|shorten|improve|simplify|condense|rephrase|edit)\b/i;
+      const shouldReplace = replaceKeywords.test(userQuery);
+
+      if (!hasContent) {
         editor.commands.setContent(result);
+      } else if (shouldReplace) {
+        editor.commands.setContent(result);
+      } else {
+        editor.commands.focus("end");
+        editor.commands.insertContent(`<p></p>${result}<p></p>`);
       }
       showToast("AI has updated your note", "success");
     } catch {

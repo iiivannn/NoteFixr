@@ -5,8 +5,15 @@ import { NextResponse } from "next/server";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
-const TASKS_MODEL = "moonshotai/kimi-k2-instruct";
+const TASKS_MODEL = "openai/gpt-oss-120b";
 const CHUNK_SIZE = 40000;
+const TPM_LIMIT = 8000;
+
+function estimateMaxTokens(content: string, systemPrompt: string): number {
+  const inputTokens = Math.ceil((content.length + systemPrompt.length) / 4);
+  const available = TPM_LIMIT - inputTokens;
+  return available > 0 ? available : 256;
+}
 
 const SYSTEM_PROMPT = `You are an AI assistant embedded inside NoteFixr, a note-taking application.
         
@@ -77,7 +84,7 @@ const SYSTEM_PROMPT = `You are an AI assistant embedded inside NoteFixr, a note-
         - Frontend: Next.js 16 with App Router, TypeScript, SCSS Modules
         - Editor: Tiptap (headless ProseMirror-based rich text editor)
         - Database: PostgreSQL hosted on Neon (serverless), managed with Prisma ORM
-        - AI: Groq API using Moonshotai Kimi K2 Model for fast and reliable inference on note editing tasks, and Groq Compound Model for web-search-enabled content elaboration
+        - AI: Groq API using OpenAI GPT OSS 120B Model for fast and reliable inference on note editing tasks, and Groq Compound Model for web-search-enabled content elaboration
         - Authentication: NextAuth v4 with Google OAuth and email/password credentials
         - Deployment: Vercel
 
@@ -178,15 +185,16 @@ async function processLongContent(
           ? `[Context from previous sections: ${chunkSummaries[i - 1]}]\n\n`
           : "";
 
+      const userContent = `My note (section ${i + 1} of ${chunks.length}):\n${contextPrefix}${chunk}\n\nMy request: ${query}`;
       const result = await groq.chat.completions.create({
         model: TASKS_MODEL,
-        max_tokens: 2048,
+        max_tokens: estimateMaxTokens(userContent, SYSTEM_PROMPT),
         stream: false,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: `My note (section ${i + 1} of ${chunks.length}):\n${contextPrefix}${chunk}\n\nMy request: ${query}`,
+            content: userContent,
           },
         ],
       });
@@ -199,14 +207,15 @@ async function processLongContent(
 
   const combined = chunkResults.join("\n");
 
+  const assemblyPrompt = `You are a note assembly assistant. You will receive multiple processed sections of a single note that were handled separately. Combine them into one cohesive, well-structured document that fulfills the user's original request: "${query}". Remove duplicate headings or repeated content. Maintain logical flow. Return only clean HTML with no preamble.`;
   const finalResult = await groq.chat.completions.create({
     model: TASKS_MODEL,
-    max_tokens: 4096,
+    max_tokens: estimateMaxTokens(combined, assemblyPrompt),
     stream: false,
     messages: [
       {
         role: "system",
-        content: `You are a note assembly assistant. You will receive multiple processed sections of a single note that were handled separately. Combine them into one cohesive, well-structured document that fulfills the user's original request: "${query}". Remove duplicate headings or repeated content. Maintain logical flow. Return only clean HTML with no preamble.`,
+        content: assemblyPrompt,
       },
       { role: "user", content: combined },
     ],
@@ -225,24 +234,47 @@ export async function POST(req: Request) {
   const { content, query } = await req.json();
 
   if (content?.length > CHUNK_SIZE) {
-    const result = await processLongContent(content, query);
-    return new Response(result, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+    try {
+      const result = await processLongContent(content, query);
+      return new Response(result, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    } catch (err) {
+      const is413 = (err as { status?: number })?.status === 413;
+      return NextResponse.json(
+        { error: is413
+            ? "Your note is too large for the AI to process. Please paste a smaller amount of content and try again."
+            : "Something went wrong — please try again."
+        },
+        { status: is413 ? 413 : 500 },
+      );
+    }
   }
 
-  const stream = await groq.chat.completions.create({
-    model: TASKS_MODEL,
-    max_tokens: 2048,
-    stream: true,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `My note:\n${content}\n\nMy request: ${query}`,
+  let stream;
+  try {
+    stream = await groq.chat.completions.create({
+      model: TASKS_MODEL,
+      max_tokens: estimateMaxTokens((content ?? "") + (query ?? ""), SYSTEM_PROMPT),
+      stream: true,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `My note:\n${content}\n\nMy request: ${query}`,
+        },
+      ],
+    });
+  } catch (err) {
+    const is413 = (err as { status?: number })?.status === 413;
+    return NextResponse.json(
+      { error: is413
+          ? "Your note is too large for the AI to process. Please paste a smaller amount of content and try again."
+          : "Something went wrong — please try again."
       },
-    ],
-  });
+      { status: is413 ? 413 : 500 },
+    );
+  }
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
