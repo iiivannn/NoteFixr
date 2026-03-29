@@ -1,8 +1,7 @@
 "use client";
-import { Player } from "@remotion/player";
 import { Sparkles, Save, MessageSquare, NotebookPen } from "lucide-react";
-import NoteFixrVideo, { VIDEO_CONFIG } from "./NoteFixrVideo";
 import "../../styles/landing.scss";
+import { useEffect, useRef } from "react";
 
 const FEATURES = [
   {
@@ -32,6 +31,23 @@ const FEATURES = [
 ];
 
 export default function LandingPage() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!videoRef.current) return;
+      if (document.hidden) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   return (
     <div className="landing">
       <nav className="landing-nav">
@@ -69,15 +85,15 @@ export default function LandingPage() {
 
       <section className="landing-video">
         <div className="video-wrapper">
-          <Player
-            component={NoteFixrVideo}
-            compositionWidth={VIDEO_CONFIG.width}
-            compositionHeight={VIDEO_CONFIG.height}
-            durationInFrames={VIDEO_CONFIG.durationInFrames}
-            fps={VIDEO_CONFIG.fps}
-            controls
+          <video
+            ref={videoRef}
+            src="https://qapfxyqger0gwpnv.public.blob.vercel-storage.com/landing-video.mp4"
             autoPlay
             loop
+            playsInline
+            controls
+            muted
+            controlsList="nodownload"
             style={{
               width: "100%",
               borderRadius: 8,

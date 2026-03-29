@@ -45,6 +45,11 @@ import {
   Minus,
   Sparkles,
 } from "lucide-react";
+import { loadFont } from "@remotion/google-fonts/Geist";
+import { loadFont as loadFontMono } from "@remotion/google-fonts/GeistMono";
+
+const { fontFamily } = loadFont();
+const { fontFamily: monoFamily } = loadFontMono();
 
 /* ─── Colors ─── */
 const C = {
@@ -70,8 +75,8 @@ const C = {
   lightAccent: "#0067c0",
   lightAccentLight: "#e8f1fb",
 };
-const FONT = "'Geist', sans-serif";
-const MONO = "'Geist Mono', monospace";
+const FONT = fontFamily;
+const MONO = monoFamily;
 
 /* ─── Helpers ─── */
 function fi(frame: number, start: number, dur = 20) {
@@ -1501,7 +1506,12 @@ function LayoutScene() {
           scale={scale}
           opacity={s}
           sidebar={<SidebarMockup notes={NOTES_INITIAL} activeIndex={0} />}
-          editor={<EditorArea showFloating content={<RawContent visible={visible} />} />}
+          editor={
+            <EditorArea
+              showFloating
+              content={<RawContent visible={visible} />}
+            />
+          }
         />
       </div>
     </AbsoluteFill>
