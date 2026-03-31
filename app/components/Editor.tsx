@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState, useReducer, useEffect } from "react";
+import { useCallback, useState, useReducer, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -31,7 +31,9 @@ import {
   Redo,
   Pencil,
   Menu,
+  Download,
 } from "lucide-react";
+import { htmlToMarkdown, htmlToPlainText } from "../lib/html-to-markdown";
 
 interface EditorProps {
   noteId?: string;
@@ -66,6 +68,8 @@ export default function Editor({
   const { toast, showToast, hideToast } = useToast();
   const [smartSavingIndex, setSmartSavingIndex] = useState(0);
   const [smartSavingFade, setSmartSavingFade] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!smartSaving) {
@@ -291,6 +295,30 @@ export default function Editor({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleQuickSave, handleSmartSave]);
 
+  useEffect(() => {
+    if (!exportOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [exportOpen]);
+
+  function exportNote(format: "md" | "txt") {
+    if (!editor) return;
+    const filename = (title || "note").replace(/[^a-z0-9\-_\s]/gi, "").trim() || "note";
+    const content = format === "md" ? htmlToMarkdown(editor.getHTML()) : htmlToPlainText(editor.getHTML());
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (!editor) return null;
 
   return (
@@ -358,6 +386,25 @@ export default function Editor({
               "Smart Save"
             )}
           </button>
+          <div className="export-menu" ref={exportMenuRef}>
+            <button
+              className="btn-export"
+              onClick={() => setExportOpen((o) => !o)}
+              title="Export note"
+            >
+              <Download size={14} />
+            </button>
+            {exportOpen && (
+              <div className="export-dropdown">
+                <button onClick={() => { exportNote("md"); setExportOpen(false); }}>
+                  Export as Markdown
+                </button>
+                <button onClick={() => { exportNote("txt"); setExportOpen(false); }}>
+                  Export as Plain Text
+                </button>
+              </div>
+            )}
+          </div>
           <SettingsMenu />
         </div>
       </div>
