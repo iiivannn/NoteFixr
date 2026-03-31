@@ -83,6 +83,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.1s;
+  position: relative;
 
   &:hover {
     background: var(--surface-hover);
@@ -93,15 +94,6 @@
     .note-title {
       color: var(--accent);
     }
-  }
-
-  .note-title {
-    font-size: 13px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 400;
   }
 
   .note-date {
@@ -245,7 +237,7 @@
   border-radius: 50%;
   background: var(--accent);
   flex-shrink: 0;
-  display: inline-block;
+  margin-top: 2px;
 }
 
 .sidebar-section-label {
@@ -273,15 +265,34 @@
 .note-title {
   font-size: 13px;
   color: var(--text);
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   font-weight: 400;
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+}
+
+.note-title-text {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+@keyframes title-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(0);
+  }
+  85% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.sidebar-note-item:hover .note-title-text {
+  animation: title-scroll 5s ease-in-out 0.4s infinite alternate;
 }
 
 .note-pin-btn {

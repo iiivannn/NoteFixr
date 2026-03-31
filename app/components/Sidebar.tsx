@@ -96,13 +96,14 @@ export default function Sidebar() {
         key={note.id}
         className={`sidebar-note-item ${note.pinned ? "sidebar-note-item--pinned" : ""}`}
         onClick={() => openNote(note.id)}
+        onMouseEnter={() => router.prefetch(`/notes/${note.id}`)}
       >
         <div className="note-title-row">
+          {hasDraft(note.id) && (
+            <span className="unsaved-dot" title="Unsaved changes" />
+          )}
           <span className="note-title">
-            {note.title ?? "Untitled"}
-            {hasDraft(note.id) && (
-              <span className="unsaved-dot" title="Unsaved changes" />
-            )}
+            <span className="note-title-text">{note.title ?? "Untitled"}</span>
           </span>
           <button
             className={`note-pin-btn ${note.pinned ? "note-pin-btn--active" : ""}`}
