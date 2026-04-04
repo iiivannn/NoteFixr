@@ -16,7 +16,7 @@ export default function AiToolbar({ editor, showToast }: AiToolbarProps) {
     setLoading(mode);
 
     try {
-      const content = editor.getHTML();
+      const content = editor.getHTML().replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
       const res = await fetch("/api/ai", {
         method: "POST",

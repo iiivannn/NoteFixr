@@ -74,6 +74,7 @@ export default function Sidebar() {
 
   function openNote(id: string) {
     router.push(`/notes/${id}`);
+    setSidebarOpen(false);
   }
 
   function hasDraft(id: string) {
@@ -96,7 +97,24 @@ export default function Sidebar() {
         key={note.id}
         className={`sidebar-note-item ${note.pinned ? "sidebar-note-item--pinned" : ""}`}
         onClick={() => openNote(note.id)}
-        onMouseEnter={() => router.prefetch(`/notes/${note.id}`)}
+        onMouseEnter={(e) => {
+          router.prefetch(`/notes/${note.id}`);
+          const container = e.currentTarget.querySelector(".note-title") as HTMLElement;
+          const text = e.currentTarget.querySelector(".note-title-text") as HTMLElement;
+          if (!container || !text) return;
+          const overflow = text.scrollWidth - container.clientWidth;
+          if (overflow > 0) {
+            text.style.setProperty("--scroll-amount", `-${overflow}px`);
+            text.classList.add("is-overflowing");
+          }
+        }}
+        onMouseLeave={(e) => {
+          const text = e.currentTarget.querySelector(".note-title-text") as HTMLElement;
+          if (text) {
+            text.classList.remove("is-overflowing");
+            text.style.removeProperty("--scroll-amount");
+          }
+        }}
       >
         <div className="note-title-row">
           {hasDraft(note.id) && (

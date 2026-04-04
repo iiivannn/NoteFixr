@@ -276,23 +276,17 @@
   white-space: nowrap;
 }
 
-@keyframes title-scroll {
-  0% {
+@keyframes title-marquee {
+  0%, 15% {
     transform: translateX(0);
   }
-  15% {
-    transform: translateX(0);
-  }
-  85% {
-    transform: translateX(-50%);
-  }
-  100% {
-    transform: translateX(-50%);
+  85%, 100% {
+    transform: translateX(var(--scroll-amount, 0px));
   }
 }
 
-.sidebar-note-item:hover .note-title-text {
-  animation: title-scroll 5s ease-in-out 0.4s infinite alternate;
+.note-title-text.is-overflowing {
+  animation: title-marquee 3.5s ease-in-out 0.3s infinite alternate;
 }
 
 .note-pin-btn {

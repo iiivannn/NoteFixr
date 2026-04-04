@@ -57,7 +57,7 @@ export default function LandingPage() {
             Sign in
           </a>
           <a href="/register" className="nav-btn">
-            Get Started
+            Register
           </a>
         </div>
       </nav>
@@ -74,11 +74,8 @@ export default function LandingPage() {
           don&apos;t have the time to fix them, we do it for you.
         </p>
         <div className="hero-actions">
-          <a href="/register" className="btn-primary">
+          <a href="/login" className="btn-primary">
             Get Started
-          </a>
-          <a href="/login" className="btn-secondary">
-            Sign In
           </a>
         </div>
       </section>

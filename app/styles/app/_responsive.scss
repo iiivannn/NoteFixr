@@ -50,7 +50,8 @@
     gap: 6px;
   }
   .editor-note-title-wrapper {
-    max-width: 160px;
+    width: 160px;
+    flex-shrink: 1;
   }
 
   .skeleton--title {
