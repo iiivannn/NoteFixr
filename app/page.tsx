@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./lib/auth";
+import { prisma } from "./lib/prisma";
 import LandingPage from "./components/landing/LandingPage";
 
 export default async function Home() {
@@ -12,10 +13,15 @@ export default async function Home() {
     const lastNoteId = cookieStore.get("lastNoteId")?.value;
 
     if (lastNoteId) {
-      redirect(`/notes/${lastNoteId}`);
-    } else {
-      redirect("/notes/new");
+      const note = await prisma.note.findUnique({
+        where: { id: lastNoteId },
+        select: { id: true },
+      });
+      if (note) {
+        redirect(`/notes/${lastNoteId}`);
+      }
     }
+    redirect("/notes/new");
   }
 
   return <LandingPage />;

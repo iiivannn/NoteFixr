@@ -11,7 +11,6 @@ export default async function NoteIdPage({ params }: Props) {
   const note = await prisma.note.findUnique({ where: { id } });
 
   if (!note) {
-    localStorage.removeItem("lastNoteId");
     notFound();
   }
 
