@@ -13,10 +13,6 @@ const WEB_SEARCH_MODEL = "groq/compound";
 const CHUNK_SIZE = 40000;
 const TPM_LIMIT = 8000;
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
 function estimateMaxTokens(content: string, systemPrompt: string): number {
   const inputTokens = Math.ceil((content.length + systemPrompt.length) / 4);
   const available = TPM_LIMIT - inputTokens;
@@ -105,7 +101,6 @@ export async function POST(req: Request) {
   }
 
   const { content, mode } = await req.json();
-  const plainContent = stripHtml(content);
 
   if (!content || !mode) {
     return NextResponse.json(
@@ -129,7 +124,7 @@ export async function POST(req: Request) {
 
   if (content.length > CHUNK_SIZE && isChunkableMode) {
     try {
-      const result = await processLongContent(plainContent, systemPrompt, model);
+      const result = await processLongContent(content, systemPrompt, model);
       return new Response(result, {
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
@@ -149,11 +144,11 @@ export async function POST(req: Request) {
   try {
     stream = await groq.chat.completions.create({
       model,
-      max_tokens: estimateMaxTokens(plainContent, systemPrompt),
+      max_tokens: estimateMaxTokens(content, systemPrompt),
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: plainContent },
+        { role: "user", content: content },
       ],
     });
   } catch (err) {
