@@ -44,7 +44,7 @@ export default function FloatingAiPrompt({
   const [placeholderText, setPlaceholderText] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [minimized, setMinimized] = useState(false);
 
   useEffect(() => {
@@ -78,6 +78,7 @@ export default function FloatingAiPrompt({
     const noteContent = editor.getHTML();
     const userQuery = input.trim();
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
 
     try {
       const res = await fetch("/api/ai/chat", {
@@ -170,34 +171,47 @@ export default function FloatingAiPrompt({
         </div>
       )}
 
-      {minimized ? (
+      <div className={`floating-ai-stack ${minimized ? "is-minimized" : ""}`}>
         <button
           className="floating-ai-minimized"
           onClick={() => setMinimized(false)}
           title="Open AI prompt"
+          aria-hidden={!minimized}
+          tabIndex={minimized ? 0 : -1}
         >
           <Sparkles size={14} /> Ask AI
         </button>
-      ) : (
-        <div className="floating-ai-wrapper">
+        <div
+          className="floating-ai-wrapper"
+          aria-hidden={minimized}
+        >
           <label htmlFor="ai-chat" className="floating-ai-inner">
-            <input
+            <textarea
               ref={inputRef}
               className="floating-ai-input"
-              type="text"
+              rows={1}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSubmit();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
               }}
               placeholder={placeholderText}
               disabled={loading}
               id="ai-chat"
+              tabIndex={minimized ? -1 : 0}
             />
             <button
               className="floating-ai-minimize"
               onClick={() => setMinimized(true)}
               title="Minimize"
+              tabIndex={minimized ? -1 : 0}
             >
               <Minus size={14} />
             </button>
@@ -206,12 +220,13 @@ export default function FloatingAiPrompt({
               onClick={handleSubmit}
               disabled={loading || !input.trim()}
               title="Send (Enter)"
+              tabIndex={minimized ? -1 : 0}
             >
               <ArrowUp size={14} />
             </button>
           </label>
         </div>
-      )}
+      </div>
     </div>
   );
 }
