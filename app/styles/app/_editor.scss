@@ -571,49 +571,79 @@
   }
 }
 
-.ai-thinking-wrapper {
-  width: min(600px, calc(100% - 48px));
-  margin: 0 auto;
+.ai-checklist {
   display: flex;
-  justify-content: end;
-}
-
-.ai-thinking {
-  align-self: flex-end;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  width: max-content;
-}
-
-.ai-thinking-grid {
-  display: grid;
-  grid-template-columns: repeat(24, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  flex-direction: column;
   gap: 4px;
-  width: max-content;
-  height: 100%;
+  padding: 10px 14px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  animation: aiChecklistIn 0.22s ease;
 }
 
-.ai-thinking-cell {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--text);
-  opacity: 0;
-  animation: dotAppear ease-in-out infinite alternate;
+.ai-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
 
-  @keyframes dotAppear {
-    0% {
-      opacity: 0;
-      transform: scale(0.3);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
+.ai-checklist-row--pending {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.ai-checklist-row--active {
+  color: var(--accent);
+}
+
+.ai-checklist-row--done {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.ai-checklist-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.ai-checklist-row--pending .ai-checklist-icon {
+  color: var(--border);
+}
+
+.ai-checklist-row--active .ai-checklist-icon {
+  color: var(--accent);
+}
+
+.ai-checklist-row--done .ai-checklist-icon {
+  color: var(--accent);
+}
+
+.ai-checklist-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes aiChecklistIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

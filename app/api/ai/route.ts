@@ -39,42 +39,51 @@ function splitIntoChunks(content: string, maxChars: number): string[] {
   return chunks;
 }
 
+type ProgressEvent =
+  | { type: "progress"; phase: "processing" | "assembling"; current: number; total: number }
+  | { type: "result"; html: string }
+  | { type: "error"; message: string };
+
 async function processLongContent(
   content: string,
   systemPrompt: string,
   model: string,
+  emit: (event: ProgressEvent) => void,
 ): Promise<string> {
   const chunks = splitIntoChunks(content, CHUNK_SIZE);
-
+  const total = chunks.length;
   const chunkSummaries: string[] = [];
+  const chunkResults: string[] = [];
 
-  const chunkResults = await Promise.all(
-    chunks.map(async (chunk, i) => {
-      const contextPrefix =
-        i > 0 && chunkSummaries[i - 1]
-          ? `[Context from previous sections: ${chunkSummaries[i - 1]}]\n\n`
-          : "";
+  emit({ type: "progress", phase: "processing", current: 0, total });
 
-      const userContent = contextPrefix + chunk;
-      const result = await groq.chat.completions.create({
-        model,
-        max_tokens: estimateMaxTokens(userContent, systemPrompt),
-        stream: false,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-      });
+  for (let i = 0; i < total; i++) {
+    emit({ type: "progress", phase: "processing", current: i + 1, total });
 
-      const text = result.choices[0]?.message?.content ?? "";
+    const contextPrefix =
+      i > 0 && chunkSummaries[i - 1]
+        ? `[Context from previous sections: ${chunkSummaries[i - 1]}]\n\n`
+        : "";
 
-      chunkSummaries[i] = text.slice(0, 300).replace(/\s+/g, " ").trim();
+    const userContent = contextPrefix + chunks[i];
+    const result = await groq.chat.completions.create({
+      model,
+      max_tokens: estimateMaxTokens(userContent, systemPrompt),
+      stream: false,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+    });
 
-      return text;
-    }),
-  );
+    const text = result.choices[0]?.message?.content ?? "";
+    chunkSummaries[i] = text.slice(0, 300).replace(/\s+/g, " ").trim();
+    chunkResults.push(text);
+  }
 
   const combined = chunkResults.join("\n");
+
+  emit({ type: "progress", phase: "assembling", current: total, total });
 
   const assemblyPrompt = `You are a note assembly assistant. You will receive multiple cleaned sections of a single note that were processed separately. Combine them into one cohesive, well-structured document. Remove duplicate headings or repeated content. Maintain logical flow. Return only clean HTML.`;
   const finalResult = await groq.chat.completions.create({
@@ -123,21 +132,33 @@ export async function POST(req: Request) {
     mode === "clean" || mode === "summarize" || mode === "elaborate";
 
   if (content.length > CHUNK_SIZE && isChunkableMode) {
-    try {
-      const result = await processLongContent(content, systemPrompt, model);
-      return new Response(result, {
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-      });
-    } catch (err) {
-      const is413 = (err as { status?: number })?.status === 413;
-      return NextResponse.json(
-        { error: is413
-            ? "Your note is too large for the AI to process. Please paste a smaller amount of content and try again."
-            : "Something went wrong — please try again."
-        },
-        { status: is413 ? 413 : 500 },
-      );
-    }
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        const emit = (event: ProgressEvent) => {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+        };
+        try {
+          const html = await processLongContent(content, systemPrompt, model, emit);
+          emit({ type: "result", html });
+        } catch (err) {
+          const is413 = (err as { status?: number })?.status === 413;
+          emit({
+            type: "error",
+            message: is413
+              ? "Your note is too large for the AI to process. Please paste a smaller amount of content and try again."
+              : "Something went wrong — please try again.",
+          });
+        }
+        controller.close();
+      },
+    });
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Transfer-Encoding": "chunked",
+      },
+    });
   }
 
   let stream;

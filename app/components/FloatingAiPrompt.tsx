@@ -2,10 +2,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Editor } from "@tiptap/react";
 import { ArrowUp, Minus, Sparkles } from "lucide-react";
+import type { AiProgress } from "./AiProgressBanner";
 
 interface FloatingAiPromptProps {
   editor: Editor | null;
   showToast: (message: string, type: "success" | "error") => void;
+  setAiProgress: (progress: AiProgress | null) => void;
 }
 
 const PLACEHOLDERS = [
@@ -23,21 +25,19 @@ const PLACEHOLDERS = [
   "What can NoteFixr do?",
 ];
 
-const GRID_COLS = 24;
-const GRID_ROWS = 3;
-const TOTAL_DOTS = GRID_COLS * GRID_ROWS;
+const CHAT_PHASES = [
+  "Thinking about your request",
+  "Working on a response",
+  "Drafting the result",
+  "Polishing the wording",
+];
 
-const DOT_DELAYS = Array.from({ length: TOTAL_DOTS }, () =>
-  (Math.random() * 2).toFixed(2),
-);
-
-const DOT_DURATIONS = Array.from({ length: TOTAL_DOTS }, () =>
-  (0.4 + Math.random() * 1.2).toFixed(2),
-);
+const PHASE_INTERVAL_MS = 1800;
 
 export default function FloatingAiPrompt({
   editor,
   showToast,
+  setAiProgress,
 }: FloatingAiPromptProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,6 +46,17 @@ export default function FloatingAiPrompt({
   const [isDeleting, setIsDeleting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [minimized, setMinimized] = useState(false);
+  const cycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const realProgressRef = useRef(false);
+  const progressRef = useRef<AiProgress | null>(null);
+
+  const updateProgress = useCallback(
+    (next: AiProgress | null) => {
+      progressRef.current = next;
+      setAiProgress(next);
+    },
+    [setAiProgress],
+  );
 
   useEffect(() => {
     const current = PLACEHOLDERS[placeholderIndex];
@@ -71,15 +82,95 @@ export default function FloatingAiPrompt({
     return () => clearTimeout(timeout);
   }, [placeholderText, isDeleting, placeholderIndex]);
 
+  const startCycling = useCallback(() => {
+    realProgressRef.current = false;
+    let i = 0;
+    updateProgress({ phases: CHAT_PHASES, currentIndex: 0 });
+    cycleTimerRef.current = setInterval(() => {
+      if (realProgressRef.current) return;
+      if (i >= CHAT_PHASES.length - 1) {
+        if (cycleTimerRef.current) {
+          clearInterval(cycleTimerRef.current);
+          cycleTimerRef.current = null;
+        }
+        return;
+      }
+      i += 1;
+      const prev = progressRef.current;
+      if (prev) updateProgress({ ...prev, currentIndex: i });
+    }, PHASE_INTERVAL_MS);
+  }, [updateProgress]);
+
+  const stopChecklist = useCallback(() => {
+    if (cycleTimerRef.current) {
+      clearInterval(cycleTimerRef.current);
+      cycleTimerRef.current = null;
+    }
+    realProgressRef.current = false;
+    updateProgress(null);
+  }, [updateProgress]);
+
+  const completeAndStop = useCallback(() => {
+    if (cycleTimerRef.current) {
+      clearInterval(cycleTimerRef.current);
+      cycleTimerRef.current = null;
+    }
+    realProgressRef.current = true;
+    const prev = progressRef.current;
+    if (!prev) {
+      updateProgress(null);
+      return;
+    }
+    updateProgress({ ...prev, currentIndex: prev.phases.length });
+    setTimeout(() => updateProgress(null), 700);
+  }, [updateProgress]);
+
+  const takeOverWithLongPath = useCallback(
+    (total: number) => {
+      realProgressRef.current = true;
+      if (cycleTimerRef.current) {
+        clearInterval(cycleTimerRef.current);
+        cycleTimerRef.current = null;
+      }
+      updateProgress({
+        phases: [
+          `Processing section 1 of ${total}`,
+          "Assembling final result",
+        ],
+        currentIndex: 0,
+      });
+    },
+    [updateProgress],
+  );
+
+  const updateProcessingLabel = useCallback(
+    (current: number, total: number) => {
+      const prev = progressRef.current;
+      if (!prev) return;
+      const phases = [...prev.phases];
+      phases[0] = `Processing section ${Math.max(1, current)} of ${total}`;
+      updateProgress({ ...prev, phases, currentIndex: 0 });
+    },
+    [updateProgress],
+  );
+
+  const advanceToAssembling = useCallback(() => {
+    const prev = progressRef.current;
+    if (!prev) return;
+    updateProgress({ ...prev, currentIndex: prev.phases.length - 1 });
+  }, [updateProgress]);
+
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || !editor || loading) return;
     setLoading(true);
+    startCycling();
 
     const noteContent = editor.getHTML();
     const userQuery = input.trim();
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
 
+    let success = false;
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -90,29 +181,74 @@ export default function FloatingAiPrompt({
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
         showToast(errData?.error ?? "Something went wrong — please try again", "error");
-        setLoading(false);
         return;
       }
 
       if (!res.body) {
         showToast("AI did not return a response", "error");
-        setLoading(false);
         return;
       }
 
+      const contentType = res.headers.get("content-type") ?? "";
+      const isNdjson = contentType.includes("application/x-ndjson");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let result = "";
+      let errored = false;
+      let longPathInitialized = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        result += decoder.decode(value, { stream: true });
+      if (isNdjson) {
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const event = JSON.parse(trimmed);
+              if (event.type === "progress") {
+                if (event.phase === "processing") {
+                  if (!longPathInitialized) {
+                    takeOverWithLongPath(event.total);
+                    longPathInitialized = true;
+                  }
+                  if (event.current > 0) {
+                    updateProcessingLabel(event.current, event.total);
+                  }
+                } else if (event.phase === "assembling") {
+                  if (!longPathInitialized) {
+                    takeOverWithLongPath(event.total);
+                    longPathInitialized = true;
+                  }
+                  advanceToAssembling();
+                }
+              } else if (event.type === "result") {
+                result = event.html ?? "";
+              } else if (event.type === "error") {
+                showToast(event.message, "error");
+                errored = true;
+              }
+            } catch {
+              // ignore malformed lines
+            }
+          }
+        }
+      } else {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          result += decoder.decode(value, { stream: true });
+        }
       }
+
+      if (errored) return;
 
       if (!result.trim()) {
         showToast("AI returned an empty response — try again", "error");
-        setLoading(false);
         return;
       }
 
@@ -120,7 +256,6 @@ export default function FloatingAiPrompt({
         const parsed = JSON.parse(result);
         if (parsed.refused) {
           showToast(parsed.reason, "error");
-          setLoading(false);
           return;
         }
       } catch {
@@ -143,34 +278,32 @@ export default function FloatingAiPrompt({
         editor.commands.insertContent(`<p></p>${result}<p></p>`);
       }
       showToast("AI has updated your note", "success");
+      success = true;
     } catch {
       showToast("Something went wrong — please try again", "error");
+    } finally {
+      if (success) {
+        completeAndStop();
+      } else {
+        stopChecklist();
+      }
+      setLoading(false);
     }
-
-    setLoading(false);
-  }, [input, editor, loading, showToast]);
+  }, [
+    input,
+    editor,
+    loading,
+    showToast,
+    startCycling,
+    stopChecklist,
+    completeAndStop,
+    takeOverWithLongPath,
+    updateProcessingLabel,
+    advanceToAssembling,
+  ]);
 
   return (
     <div className="floating-ai-prompt">
-      {loading && (
-        <div className="ai-thinking-wrapper">
-          <div className="ai-thinking">
-            <div className="ai-thinking-grid">
-              {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
-                <span
-                  key={i}
-                  className="ai-thinking-cell"
-                  style={{
-                    animationDelay: `${DOT_DELAYS[i]}s`,
-                    animationDuration: `${DOT_DURATIONS[i]}s`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className={`floating-ai-stack ${minimized ? "is-minimized" : ""}`}>
         <button
           className="floating-ai-minimized"

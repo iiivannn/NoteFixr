@@ -12,6 +12,7 @@ import SettingsMenu from "./SettingsMenu";
 import AiToolbar from "./AiToolbar";
 import { useRouter } from "next/navigation";
 import FloatingAiPrompt from "./FloatingAiPrompt";
+import AiProgressBanner, { type AiProgress } from "./AiProgressBanner";
 import Toast from "./Toast";
 import { useToast } from "../lib/useToast";
 
@@ -70,6 +71,7 @@ export default function Editor({
   const [smartSavingFade, setSmartSavingFade] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [aiProgress, setAiProgress] = useState<AiProgress | null>(null);
 
   useEffect(() => {
     if (!smartSaving) {
@@ -570,7 +572,8 @@ export default function Editor({
         </button>
       </div>
 
-      <AiToolbar editor={editor} showToast={showToast} />
+      <AiToolbar editor={editor} showToast={showToast} setAiProgress={setAiProgress} />
+      <AiProgressBanner progress={aiProgress} />
       <div className="editor-content-wrapper">
         <EditorContent editor={editor} />
       </div>
@@ -628,7 +631,7 @@ export default function Editor({
         </div>
       )}
 
-      <FloatingAiPrompt editor={editor} showToast={showToast} />
+      <FloatingAiPrompt editor={editor} showToast={showToast} setAiProgress={setAiProgress} />
 
       {toast && (
         <Toast
