@@ -8,10 +8,11 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 const TASKS_MODEL = "openai/gpt-oss-120b";
 const CHUNK_SIZE = 40000;
 const TPM_LIMIT = 8000;
+const TPM_SAFETY_MARGIN = 256;
 
 function estimateMaxTokens(content: string, systemPrompt: string): number {
   const inputTokens = Math.ceil((content.length + systemPrompt.length) / 4);
-  const available = TPM_LIMIT - inputTokens;
+  const available = TPM_LIMIT - inputTokens - TPM_SAFETY_MARGIN;
   return available > 0 ? available : 256;
 }
 
