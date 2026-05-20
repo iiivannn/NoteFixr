@@ -84,7 +84,7 @@ export default function LandingPage() {
         <div className="video-wrapper">
           <video
             ref={videoRef}
-            src="https://qapfxyqger0gwpnv.public.blob.vercel-storage.com/landing-video.mp4"
+            src="https://qapfxyqger0gwpnv.public.blob.vercel-storage.com/notefixr-demo.mp4"
             autoPlay
             loop
             playsInline
